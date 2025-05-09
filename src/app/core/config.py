@@ -7,11 +7,14 @@ import os
 
 class Settings(BaseSettings):
     # Application Configuration
-    PROJECT_NAME: str = "Quiz API"
-    API_V1_STR: str = "/api/v1"
+    PROJECT_NAME: str = os.getenv("PROJECT_NAME", "Quiz API")
+    PROJECT_DESC: str = os.getenv(
+        "PROJECT_DESC", "An API for managing quizzes and users"
+    )
+    VERSION: str = os.getenv("VERSION", "1.0.0")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "dev")  # dev, prod, test
     DEBUG: bool = os.getenv("DEBUG", False)
-    VERSION: str = "0.1.0"
+    LOG_DIR_PATH: str = os.getenv("LOG_DIR_PATH", "/app/logs/")
 
     # Database Configuration
     DATABASE_URI: Optional[PostgresDsn] = os.getenv("DATABASE_URI", None)

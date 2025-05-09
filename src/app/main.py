@@ -1,15 +1,23 @@
 # src/app/main.py
 from fastapi import FastAPI
-from src.app.routes import quiz, auth
+from fastapi.exceptions import RequestValidationError
+from src.app.routes import quiz, auth, category
+from src.app.core.swagger import custom_openapi
+from src.app.core.exceptions import custom_validation_exception_handler
+from src.app.core.config import settings
 
 app = FastAPI(
-    title="Quiz API",
-    description="An API for managing quizzes and users",
-    version="1.0.0"
+    title=settings.PROJECT_NAME,
+    description=settings.PROJECT_DESC,
+    version=settings.VERSION,
 )
 
+# Register the custom exception handler
+app.add_exception_handler(RequestValidationError, custom_validation_exception_handler)
 
+# Set custom OpenAPI generator
+app.openapi = lambda: custom_openapi(app)
 
 app.include_router(quiz.router)
 app.include_router(auth.router)
-
+app.include_router(category.router)
