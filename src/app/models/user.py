@@ -53,7 +53,7 @@ class User(Base):
 
     # One-to-many relationship with the Question model
     questions = relationship("Question", back_populates="user")
-    quizzes = relationship("Quiz", back_populates="creator")
+    quizzes = relationship("Quiz", back_populates="user")
     quiz_attempts = relationship(
         "QuizAttempt", back_populates="user", cascade="all, delete-orphan"
     )

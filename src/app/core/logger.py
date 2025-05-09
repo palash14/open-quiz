@@ -1,7 +1,8 @@
 import logging
 from logging.handlers import RotatingFileHandler
 import os
-from config import settings
+from src.app.core.config import settings
+
 
 def create_logger(name, log_file):
     # Ensure the log directory exists
@@ -21,5 +22,3 @@ def create_logger(name, log_file):
     logger.addHandler(handler)
 
     return logger
-
-

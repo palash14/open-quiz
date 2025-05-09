@@ -64,7 +64,7 @@ class Question(Base):
     deleted_at = Column(DateTime, nullable=True)
 
     # Relationships
-    user = relationship("User", back_populates="users", foreign_keys=[user_id])
+    user = relationship("User", back_populates="questions", foreign_keys=[user_id])
     category = relationship(
         "Category", back_populates="questions", foreign_keys=[category_id]
     )
