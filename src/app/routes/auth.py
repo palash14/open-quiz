@@ -7,11 +7,9 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, ValidationError
 from datetime import datetime, timezone, timedelta
 from cryptography.fernet import Fernet
-from database import get_db, get_field_value
-from routers import handle_exception
-from schemas.user import UserCreate, UserResponse
-from crud import user
-from user_tasks import send_verification_email_task, send_forgot_email_task
+from src.app.core.database import get_db, get_field_value
+from src.app.utils.exceptions import handle_router_exception
+from schemas.user import UserCreate, UserResponse  
 from utils import create_redirect_uri
 from utils.hashing import verify_password, hash_password
 from utils.jwt import create_jwt_token, decode_jwt_token, get_client_ip, get_user_agent
@@ -22,7 +20,7 @@ from validators.auth_validator import RegistrationFormValidator, ForgotPasswordV
 from models.user import generate_uuid
 from jinja2 import Template
 from crud.user import find_one
-from custom_logger import create_logger
+from src.app.core.logger import create_logger
 from crud.user_token import create_user_token
 
 auth_logger = create_logger("auth_logger", "route_auth.log")
@@ -95,31 +93,13 @@ def register(
             )
         # Create user records
         new_user = user.create(db, None, validated_data.user)
-
-        # Get the encryption key from the environment variable
-        encryption_key = settings.CRYPTO_SECRET_KEY
-
-        # Check if the key was loaded successfully
-        if not encryption_key:
-            raise ValueError(
-                "Encryption key not found. Please set 'CRYPTO_SECRET_KEY' in your .env file."
-            )
-
-        cipher_suite = Fernet(encryption_key)
-        encrypted_token = cipher_suite.encrypt(new_user.email_verify_token.encode())
-
-        # Generate email verification link
-        verification_link = create_redirect_uri(
-            redirect_uri=settings.BACKEND_URL + "/auth/email-verify",
-            additional_params={
-                "email": validated_data.user.email,
-                "token": encrypted_token,
-            },
-        )
+        
+        # Generate email verification token
+        email_otp = generate_uuid()         
 
         # Queue the email verification task
         send_verification_email_task.apply_async(
-            args=[new_user.email, verification_link], queue="email_queue"
+            args=[new_user.email, email_otp], queue="email_queue"
         )
 
         # Commit the transaction after all operations are successful
@@ -148,30 +128,9 @@ def register(
         # Log the exception (in real-world application, use proper logging)
         print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while creating a user: {e}")
-        handle_exception(e)
+        handle_router_exception(e)
 
-
-# HTML template for email verification
-EMAIL_VERIFY_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Email Verification</title>
-</head>
-<body>
-    <h1>Email Verification</h1>
-    {% if error %}
-        <p style="color: red;">{{ error }}</p>
-    {% endif %}
-    <form action="/auth/verify-email" method="post">
-        <label for="email">Enter your email address:</label><br><br>
-        <input type="email" id="email" name="email" value="{{ email }}" required><br><br>
-        <input type="hidden" name="token" value="{{ token }}">
-        <input type="submit" value="Verify Email">
-    </form>
-</body>
-</html>
-"""
+ 
 
 
 @router.get("/email-verify", response_class=HTMLResponse)
@@ -310,7 +269,7 @@ def verify_email(
         # Log the exception (in a real-world application, use proper logging)
         print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while verify email: {e}")
-        handle_exception(e)
+        handle_router_exception(e)
 
 
 @router.post(
@@ -368,7 +327,7 @@ async def login(
     except Exception as e:
         print(f"{e}")
         auth_logger.error(f"An error occurred while login: {e}")
-        handle_exception(e)
+        handle_router_exception(e)
 
 
 @router.post(
@@ -462,7 +421,7 @@ def forgot_password(
     except Exception as e:
         print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while forgot password: {e}")
-        handle_exception(e)
+        handle_router_exception(e)
 
 
 # HTML template for password RESET
@@ -656,4 +615,4 @@ def reset_password(
         db.rollback()  # Rollback the changes in case of an unexpected error
         print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while reset password: {e}")
-        handle_exception(e)
+        handle_router_exception(e)

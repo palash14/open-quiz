@@ -1,7 +1,7 @@
 from sqlalchemy import Column, String, Integer, DateTime, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from models import Base
+from src.app.models import Base
 
 class UserToken(Base):
     __tablename__ = "user_tokens"
