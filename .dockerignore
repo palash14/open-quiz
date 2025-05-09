@@ -1,0 +1,60 @@
+# .dockerignore for requirements.txt-based projects
+
+# Exclude version control
+.git/
+.gitignore
+
+# Ignore environment files
+.env
+.env.local
+.env.*.local
+.venv/
+venv/
+env/
+
+# IDE configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Build outputs
+dist/
+build/
+*.egg-info/
+*.egg
+*.whl
+
+# Local databases and logs
+*.log
+*.sqlite
+*.db
+
+# Documentation builds
+docs/_build/
+
+# Package manager files (Keep requirements.txt!)
+Pipfile*
+poetry.lock
+pyproject.toml
+
+# Docker-compose overrides
+docker-compose.override.yml
+docker-compose.*.yml
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Keep these - required for build!
+!requirements.txt
+
+# Node.js files (if no frontend)
+node_modules/
