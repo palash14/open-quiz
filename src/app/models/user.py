@@ -39,6 +39,9 @@ class User(Base):
     phone_no = Column(String(15), nullable=True)
     dial_code = Column(String(5), nullable=True)
     password = Column(String, nullable=False)
+    email_verified_at = Column(DateTime, nullable=True)
+    email_verify_token = Column(String, nullable=True)
+    email_verify_expired_at = Column(DateTime, nullable=True)
     status = Column(Enum(UserStatusEnum), default=UserStatusEnum.active, nullable=False)
     user_type = Column(Enum(UserTypeEnum), default=UserTypeEnum.guest, nullable=False)
 
