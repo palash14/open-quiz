@@ -30,8 +30,7 @@ RUN pip install --upgrade pip && \
 COPY . .
 
 # Fix permissions
-RUN chmod +x ./entrypoint.sh
-# addgroup --system appgroup && \
+# RUN addgroup --system appgroup && \
 # adduser --system --ingroup appgroup appuser && \
 # chown -R appuser:appgroup /app
 
@@ -41,5 +40,5 @@ EXPOSE 8000
 # Switch to non-root user
 # USER appuser
 
-# Entrypoint
-ENTRYPOINT ["./entrypoint.sh"]
+# Set default command to run FastAPI app with autoreload
+CMD ["uvicorn", "src.app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
