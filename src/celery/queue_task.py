@@ -1,4 +1,4 @@
-from celery_config import celery
+from src.celery.celery_config import celery
 from src.celery.utils.email_worker import (
     send_verification_email,
     send_forgot_email,
