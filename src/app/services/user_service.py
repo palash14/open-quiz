@@ -2,7 +2,7 @@
 from sqlalchemy.orm import Session
 from src.app.models.user import User
 from src.app.schemas.user import UserCreate, UserUpdate
-from utils.hashing import hash_password, verify_password
+from src.app.utils.hashing import hash_password, verify_password
 from fastapi import HTTPException, status
 from typing import Optional
 from random import randint

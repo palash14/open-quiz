@@ -7,16 +7,19 @@ from pydantic import BaseModel, ValidationError
 from datetime import datetime, timezone, timedelta
 from src.app.core.database import get_db, get_field_value
 from src.app.utils.exceptions import handle_router_exception
-from schemas.user import UserCreate, UserResponse
+from src.app.schemas.user import UserCreate, UserResponse
 from src.app.utils.hashing import verify_password, hash_password
-from src.app.utils.jwt import create_jwt_token, decode_jwt_token, get_client_ip, get_user_agent, create_user_token
+from src.app.utils.jwt import (
+    create_jwt_token,
+    decode_jwt_token,
+    get_client_ip,
+    get_user_agent,
+    create_user_token,
+)
 from src.app.core.config import settings
-from src.app.utils.auth_validator import (
-    RegistrationFormValidator,
-    ForgotPasswordValidator,
-) 
+from src.app.utils.auth_validator import ForgotPasswordValidator
 from src.app.services.user_service import find_one
-from src.app.core.logger import create_logger 
+from src.app.core.logger import create_logger
 
 auth_logger = create_logger("auth_logger", "route_auth.log")
 

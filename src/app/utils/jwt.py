@@ -7,9 +7,9 @@ from typing import Union, Tuple
 from pydantic import BaseModel
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
-from models.user_token import UserToken
+from src.app.models.user_token import UserToken
 from src.app.core.config import settings
-from models.user import User, UserStatusEnum
+from src.app.models.user import User, UserStatusEnum
 from src.app.core.database import get_db
 from src.app.services.user_service import find_one
 
