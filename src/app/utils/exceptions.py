@@ -9,9 +9,16 @@ async def custom_validation_exception_handler(
 ):
     errors = {}
     for err in exc.errors():
-        field = err["loc"][-1]
+        field = ".".join(str(loc) for loc in err["loc"][1:])
         message = err["msg"]
         errors[field] = message
+
+        # Split the message by comma and take the second part (index 1)
+        if "," in message:
+            message = message.split(",")[1].strip()  # Strip spaces
+
+        errors[field] = message
+
     return JSONResponse(
         status_code=422,
         content={"errors": errors},

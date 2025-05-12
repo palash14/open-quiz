@@ -10,7 +10,7 @@ class Choice(Base):
     id = Column(Integer, primary_key=True, index=True)
     question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
 
-    option_text = Column(String(255), nullable=False)
+    option_text = Column(String(150), nullable=False)
     is_correct = Column(Boolean, default=False, nullable=False)
 
     created_at = Column(DateTime, default=func.now(), nullable=False)
