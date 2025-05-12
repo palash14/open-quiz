@@ -11,7 +11,7 @@ from src.app.models.user_token import UserToken
 from src.app.core.config import settings
 from src.app.models.user import User, UserStatusEnum
 from src.app.core.database import get_db
-from src.app.services.user_service import find_one
+from src.app.services.user_service import UserService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 

@@ -17,8 +17,8 @@ from src.app.utils.jwt import (
     create_user_token,
 )
 from src.app.core.config import settings
-from src.app.utils.auth_validator import ForgotPasswordValidator
-from src.app.services.user_service import find_one
+from src.app.schemas.auth import ForgotPasswordValidator
+from src.app.services.user_service import UserService
 from src.app.core.logger import create_logger
 
 auth_logger = create_logger("auth_logger", "route_auth.log")
@@ -75,13 +75,13 @@ def register(
     :return: A structured response indicating the success of the registration.
     :raises HTTPException: If a database error occurs during registration.
     """
-    try:
-        # Validate incoming request
-        validated_data = RegistrationFormValidator(**request.model_dump())
+    try:         
+
+        user_service = UserService(db)
 
         # Check if the email already exists
-        existing_user_by_email = get_field_value(
-            db, "users", "email", validated_data.user.email
+        existing_user_by_email = user_service.find_one(
+            email=request.email
         )
 
         if existing_user_by_email:
@@ -90,15 +90,15 @@ def register(
                 detail="User with this email already exists",
             )
         # Create user records
-        new_user = user.create(db, None, validated_data.user)
+        new_user = user_service.create(request)
 
         # Generate email verification token
-        email_otp = generate_uuid()
+        # email_otp = new_user.email_verify_token
 
         # Queue the email verification task
-        send_verification_email_task.apply_async(
-            args=[new_user.email, email_otp], queue="email_queue"
-        )
+        # send_verification_email_task.apply_async(
+        #     args=[new_user.email, email_otp], queue="email_queue"
+        # )
 
         # Commit the transaction after all operations are successful
         db.commit()
@@ -110,21 +110,8 @@ def register(
             user=UserResponse.model_validate(new_user),
         )
 
-    except ValidationError as e:
-        # If a Pydantic validation error occurs, return a 400 error with details
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=e.errors(),
-        )
-
-    except HTTPException as http_exc:
-        # Re-raise known HTTP exceptions
-        raise http_exc
-
     except Exception as e:
         db.rollback()
-        # Log the exception (in real-world application, use proper logging)
-        print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while creating a user: {e}")
         handle_router_exception(e)
 

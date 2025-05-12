@@ -1,9 +1,9 @@
-# File: src/app/utils/auth_validator.py
+# File: src/app/schemas/auth.py
 
-from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, validator
 from fastapi import HTTPException, status
 import re
+
 
 class EmailVerifyValidator(BaseModel):
     email: EmailStr
