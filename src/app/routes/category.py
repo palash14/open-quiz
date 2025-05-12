@@ -1,5 +1,5 @@
 from typing import Annotated, List
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, HTTPException, status
 from sqlalchemy.orm import Session
 from src.app.core.database import get_db
 from src.app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
@@ -59,6 +59,33 @@ def get_category(
         handle_router_exception(e)
 
 
+@router.get(
+    "/{category_id}",
+    summary="Get Category by ID",
+    description="Retrieve a Category by its ID.",
+    response_model=CategoryResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_category_by_id(
+    category_id: int,
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        service = CategoryService(db)
+        category = service.get_by_id(record_id=category_id)
+
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Category not found.",
+            )
+
+        return CategoryResponse.model_validate(category)
+    except Exception as e:
+        logger.error(e)
+        handle_router_exception(e)
+
+
 @router.put(
     "/{category_id}",
     summary="Update Category",
@@ -77,6 +104,27 @@ def update_category(
 
         db.commit()
         return CategoryResponse.model_validate(category)
+    except Exception as e:
+        logger.error(e)
+        db.rollback()
+        handle_router_exception(e)
+
+
+@router.delete(
+    "/{category_id}",
+    summary="Delete Category",
+    description="Delete an existing Category.",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_category(
+    category_id: int,
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        service = CategoryService(db)
+        service.delete(category_id)
+        db.commit()
+
     except Exception as e:
         logger.error(e)
         db.rollback()
