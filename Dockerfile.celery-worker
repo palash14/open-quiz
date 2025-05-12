@@ -29,9 +29,9 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/* && \
     pip install --upgrade pip && \
     pip install --no-cache-dir -r requirements_celery.txt && \
-    mkdir -p /var/log/company_management && \ 
+    mkdir -p /var/log/quiz_app && \ 
     adduser --disabled-password --gecos '' appuser && \
-    chown -R appuser:appuser /usr/src/app /var/log/company_management
+    chown -R appuser:appuser /usr/src/app /var/log/quiz_app
 
 # Switch to the non-root user
 USER appuser
