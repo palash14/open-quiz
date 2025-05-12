@@ -39,6 +39,10 @@ format: ## Format the code automatically
 		black src/ \
 		&& isort src/
 
+alembic-revision: ## Run database migrations
+	$(DOCKER_COMPOSE) exec $(SERVICE_NAME) alembic revision --autogenerate -m "revision"
+
+
 migrate: ## Run database migrations
 	$(DOCKER_COMPOSE) exec $(SERVICE_NAME) alembic upgrade head
 

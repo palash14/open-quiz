@@ -1,8 +1,12 @@
+from typing import List
+from slugify import slugify
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from src.app.models.question import Question
+from src.app.models.choice import Choice
 from src.app.schemas.question import QuestionCreate, QuestionUpdate
+from src.app.schemas.choice import ChoiceSync
 from src.app.services.base import BaseService
 
 
@@ -10,60 +14,140 @@ class QuestionService(BaseService):
     def __init__(self, db: Session):
         super().__init__(db, Question)
 
+    def generate_slug(self, title: str) -> str:
+        """Generate a slug based on the question title and category_id."""
+        return slugify(title)
+
     def create(self, payload: QuestionCreate) -> Question:
-        # existing = self.find_one(name=payload.name)
-        # if existing:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_400_BAD_REQUEST,
-        #         detail="Category name already exists.",
-        #     )
+        """Create a new question with associated choices."""
+        slug = self.generate_slug(f"{payload.question}-{payload.category_id}")
 
-        # category = Question(
-        #     name=payload.name,
-        #     description=payload.description,
-        # )
-        # self.db.add(category)
-        # self.db.flush()
-        # return category
-        pass
+        # Check if question with same slug exists
+        existing = self.find_one(slug=slug)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Question already exists.",
+            )
 
-    def update(self, category_id: int, payload: QuestionUpdate) -> Question:
-        # category = self.find_one(id=category_id)
-        # if not category:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_404_NOT_FOUND,
-        #         detail="Category not found.",
-        #     )
+        # Create the Question instance
+        question = Question(
+            slug=slug,
+            question=payload.question,
+            category_id=payload.category_id,
+            question_type=payload.question_type,
+            difficulty=payload.difficulty,
+            references=payload.references,
+            user_id=payload.user_id,
+        )
+        self.db.add(question)
+        self.db.flush()  # Get question.id without committing
 
-        # if payload.name and payload.name != category.name:
-        #     existing = self.find_one(Question.id != category_id, name=payload.name)
-        #     if existing:
-        #         raise HTTPException(
-        #             status_code=status.HTTP_400_BAD_REQUEST,
-        #             detail="Category name already exists.",
-        #         )
+        # sync the choices
+        self.sync_choices(question_id=question.id, choices_data=payload.choices)
 
-        # for key, value in payload.dict(exclude_unset=True).items():
-        #     setattr(category, key, value)
+        return question
 
-        # self.db.flush()
-        # return category
-        pass
+    def update(self, question_id: int, payload: QuestionUpdate) -> Question:
+        """Update an existing question."""
+        # Find the question by ID
+        question = self.get_by_id(record_id=question_id)
+        if not question:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Question not found.",
+            )
 
-    def delete(self, category_id: int) -> None:
+        # Update the fields of the question
+        for key, value in payload.dict(exclude_unset=True).items():
+            if hasattr(question, key):
+                setattr(question, key, value)
+
+        # If choices are provided, sync them
+        if payload.choices is not None:
+            self.sync_choices(question_id=question.id, choices_data=payload.choices)
+
+        self.db.flush()  # Flush to get changes reflected
+        return question
+
+    def delete(self, question_id: int) -> None:
+        """Soft delete a question by setting deleted_at timestamp."""
+        # Find the question by ID
+        question = self.get_by_id(record_id=question_id)
+        if not question:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Question not found.",
+            )
+
+        # Soft delete the question by setting the deleted_at timestamp
+        question.deleted_at = datetime.now(timezone.utc)
+        self.db.flush()  # Flush to commit the change
+
+    def sync_choices(self, question_id: int, choices_data: List[ChoiceSync]) -> None:
         """
-        Soft delete a category by setting deleted_at timestamp.
+        Sync choices for a given question:
+        - Update existing choices based on the provided 'id' or 'option_text'.
+        - Create new choices if they don't exist.
+        - Delete choices that are not provided in the new data.
+
+        :param question_id: The ID of the question whose choices need to be updated.
+        :param choices_data: A list of choice data to be inserted or updated for the question.
         """
-        # category = self.get_by_id(record_id=category_id)
+        # Fetch the current choices for the question from the database
+        current_choices = (
+            self.db.query(Choice).filter(Choice.question_id == question_id).all()
+        )
 
-        # # If category not found or already deleted, raise an exception
-        # if not category:
-        #     raise HTTPException(
-        #         status_code=status.HTTP_404_NOT_FOUND,
-        #         detail="Category not found.",
-        #     )
+        # Convert the current choices into a dictionary with 'id' as the key
+        current_choices_dict = {choice.id: choice for choice in current_choices}
 
-        # # Soft delete the category by setting the deleted_at timestamp
-        # category.deleted_at = datetime.now(timezone.utc)
-        # self.db.flush()
-        pass
+        # A list to store new or updated choices
+        new_choices = []
+        # A set of choice ids to track which ones were handled
+        existing_choice_ids = set()
+
+        # Iterate through the provided choices data (choices_data) and decide whether to update or create new choices
+        for choice_data in choices_data:
+            # If choice_data contains 'id', we will attempt to find and update the choice
+            if "id" in choice_data:
+                existing_choice = current_choices_dict.get(choice_data.id)
+
+                if existing_choice:
+                    # Update the existing choice
+                    existing_choice.option_text = choice_data.option_text
+                    existing_choice.is_correct = choice_data.is_correct
+                    existing_choice_ids.add(choice_data.id)
+                else:
+                    # If we can't find the choice by 'id', we create a new choice
+                    new_choices.append(
+                        Choice(
+                            question_id=question_id,
+                            option_text=choice_data.option_text,
+                            is_correct=choice_data.is_correct,
+                        )
+                    )
+                    existing_choice_ids.add(choice_data.id)
+            else:
+                # Create a new choice if no 'id' is provided (i.e., this is a new choice)
+                new_choices.append(
+                    Choice(
+                        question_id=question_id,
+                        option_text=choice_data.option_text,
+                        is_correct=choice_data.is_correct,
+                    )
+                )
+                existing_choice_ids.add(None)  # No id, mark as new choice
+
+        # Bulk save new choices to the database
+        self.db.bulk_save_objects(new_choices)
+
+        # Delete the old choices that are no longer part of the new data
+        choices_to_delete = [
+            choice for choice in current_choices if choice.id not in existing_choice_ids
+        ]
+        if choices_to_delete:
+            self.db.delete(choices_to_delete)
+
+        # Commit changes to the database
+        self.db.flush()
