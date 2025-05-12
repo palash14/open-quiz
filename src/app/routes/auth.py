@@ -1,27 +1,25 @@
 from typing import Annotated
 from fastapi import APIRouter, Form, Depends, status, Request, HTTPException
-from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from urllib.parse import unquote
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, ValidationError
 from datetime import datetime, timezone, timedelta
-from cryptography.fernet import Fernet
 from src.app.core.database import get_db, get_field_value
 from src.app.utils.exceptions import handle_router_exception
-from schemas.user import UserCreate, UserResponse  
-from utils import create_redirect_uri
-from utils.hashing import verify_password, hash_password
-from utils.jwt import create_jwt_token, decode_jwt_token, get_client_ip, get_user_agent
-
-from cryptography.fernet import Fernet
-from config import settings
-from validators.auth_validator import RegistrationFormValidator, ForgotPasswordValidator
-from models.user import generate_uuid
-from jinja2 import Template
-from crud.user import find_one
+from src.app.schemas.user import UserCreate, UserResponse
+from src.app.utils.hashing import verify_password, hash_password
+from src.app.utils.jwt import (
+    create_jwt_token,
+    decode_jwt_token,
+    get_client_ip,
+    get_user_agent,
+    create_user_token,
+)
+from src.app.core.config import settings
+from src.app.schemas.auth import ForgotPasswordValidator
+from src.app.services.user_service import UserService
 from src.app.core.logger import create_logger
-from crud.user_token import create_user_token
 
 auth_logger = create_logger("auth_logger", "route_auth.log")
 
@@ -77,13 +75,13 @@ def register(
     :return: A structured response indicating the success of the registration.
     :raises HTTPException: If a database error occurs during registration.
     """
-    try:
-        # Validate incoming request
-        validated_data = RegistrationFormValidator(**request.model_dump())
+    try:         
+
+        user_service = UserService(db)
 
         # Check if the email already exists
-        existing_user_by_email = get_field_value(
-            db, "users", "email", validated_data.user.email
+        existing_user_by_email = user_service.find_one(
+            email=request.email
         )
 
         if existing_user_by_email:
@@ -92,15 +90,15 @@ def register(
                 detail="User with this email already exists",
             )
         # Create user records
-        new_user = user.create(db, None, validated_data.user)
-        
+        new_user = user_service.create(request)
+
         # Generate email verification token
-        email_otp = generate_uuid()         
+        # email_otp = new_user.email_verify_token
 
         # Queue the email verification task
-        send_verification_email_task.apply_async(
-            args=[new_user.email, email_otp], queue="email_queue"
-        )
+        # send_verification_email_task.apply_async(
+        #     args=[new_user.email, email_otp], queue="email_queue"
+        # )
 
         # Commit the transaction after all operations are successful
         db.commit()
@@ -112,87 +110,17 @@ def register(
             user=UserResponse.model_validate(new_user),
         )
 
-    except ValidationError as e:
-        # If a Pydantic validation error occurs, return a 400 error with details
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=e.errors(),
-        )
-
-    except HTTPException as http_exc:
-        # Re-raise known HTTP exceptions
-        raise http_exc
-
     except Exception as e:
         db.rollback()
-        # Log the exception (in real-world application, use proper logging)
-        print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while creating a user: {e}")
         handle_router_exception(e)
-
- 
-
-
-@router.get("/email-verify", response_class=HTMLResponse)
-def email_verify(
-    request: Request, email: str, token: str, db: Annotated[Session, Depends(get_db)]
-):
-    """
-    Handle GET requests for verifying an email using a token.
-
-    :param request: The HTTP request object.
-    :param token: The email verification token.
-    :param db: The SQLAlchemy session.
-    :return: HTML page to verify the user's email address.
-    """
-
-    # Decoding the email and token
-    decoded_email = unquote(email) if email else None
-    decoded_token = unquote(token) if token else None
-
-    # Get the encryption key from the environment variable
-    encryption_key = settings.CRYPTO_SECRET_KEY
-
-    # Check if the key was loaded successfully
-    if not encryption_key:
-        raise ValueError(
-            "Encryption key not found. Please set 'CRYPTO_SECRET_KEY' in your .env file."
-        )
-
-    cipher_suite = Fernet(encryption_key)
-
-    decrypted_token = cipher_suite.decrypt(decoded_token).decode()
-
-    # Check if the token exists in the database and is valid
-    user = find_one(db, email=decoded_email, email_verify_token=decrypted_token)
-
-    if not user:
-        return HTMLResponse(
-            content="<h1>Invalid or expired token.</h1>", status_code=400
-        )
-
-    # Check if the token has expired (assuming you have an expiration date in the database)
-    if user.email_verify_expired_at:
-        email_expiry = user.email_verify_expired_at.replace(
-            tzinfo=timezone.utc
-        ).strftime("%Y%m%d%H%I")
-        today = datetime.now(timezone.utc).strftime("%Y%m%d%H%I")
-        if email_expiry < today:
-            raise HTTPException(status_code=400, detail="Token has expired!")
-
-    else:
-        raise HTTPException(status_code=400, detail="Token has expired. ")
-
-    # Render the HTML form where the user can enter their email address
-    template = Template(EMAIL_VERIFY_TEMPLATE)
-    return HTMLResponse(template.render(token=decoded_token, email=decoded_email))
 
 
 @router.post(
     "/verify-email",
     summary="Verify user's email address",
     description="This endpoint verifies a user's email address.",
-    response_class=HTMLResponse,
+    response_class=JSONResponse,
 )
 def verify_email(
     db: Annotated[Session, Depends(get_db)],
@@ -209,29 +137,18 @@ def verify_email(
     :raises HTTPException: If the user is not found, the token is invalid, or the email is already verified.
     """
     try:
-        # Get the encryption key from the environment variable
-        encryption_key = settings.CRYPTO_SECRET_KEY
 
-        # Check if the key was loaded successfully
-        if not encryption_key:
-            raise ValueError(
-                "Encryption key not found. Please set 'CRYPTO_SECRET_KEY' in your .env file."
-            )
-
-        cipher_suite = Fernet(encryption_key)
-
-        decrypted_token = cipher_suite.decrypt(token).decode()
-        result = user.find_one(db, email=email, email_verify_token=decrypted_token)
+        result = user.find_one(db, email=email, email_verify_token=token)
 
         if not result:
-            return HTMLResponse(
-                content="<h1>Verification Failed</h1><p>Invalid email or token. Please try again.</p>",
+            return JSONResponse(
+                content="Verification Failed,Invalid email or token. Please try again",
                 status_code=400,
             )
 
         if result.email_verified_at is not None:
-            return HTMLResponse(
-                content="<h1>Email address already verified.</h1>", status_code=400
+            return JSONResponse(
+                content="Email address already verified.", status_code=400
             )
 
         # Check if the token has expired
@@ -241,13 +158,13 @@ def verify_email(
             ).strftime("%Y%m%d%H%I")
             today = datetime.now(timezone.utc).strftime("%Y%m%d%H%I")
             if email_expiry < today:
-                return HTMLResponse(
-                    content="<h1>Verification Failed</h1><p>Token has expired. Please request a new verification email.</p>",
+                return JSONResponse(
+                    content="Verification Failed,Token has expired. Please request a new verification email.",
                     status_code=400,
                 )
         else:
-            return HTMLResponse(
-                content="<h1>Verification Failed</h1><p>Token has expired. Please request a new verification email.</p>",
+            return JSONResponse(
+                content="Verification Failed,Token has expired. Please request a new verification email.",
                 status_code=400,
             )
 
@@ -257,8 +174,9 @@ def verify_email(
         result.email_verify_expired_at = None
         db.commit()  # Commit the changes to the database
         db.refresh(result)  # Refresh the instance with updated data
-        url = settings.FRONTEND_URL + "/thankYou"
-        return RedirectResponse(url)
+        return JSONResponse(
+            content="Email address verified successfully.", status_code=200
+        )
 
     except HTTPException as http_exc:
         # Re-raise known HTTP exceptions
@@ -379,23 +297,6 @@ def forgot_password(
         # Generate password reset token
         reset_token = generate_uuid()
 
-        # Get the encryption key from the environment variable
-        encryption_key = settings.CRYPTO_SECRET_KEY
-
-        # Check if the key was loaded successfully
-        if not encryption_key:
-            raise ValueError(
-                "Encryption key not found. Please set 'CRYPTO_SECRET_KEY' in your .env file."
-            )
-
-        cipher_suite = Fernet(encryption_key)
-        encrypted_token = cipher_suite.encrypt(reset_token.encode())
-
-        # Create reset link
-        reset_link = create_redirect_uri(
-            redirect_uri=settings.FRONTEND_URL + "/resetPassword",
-            additional_params={"email": request.email, "token": encrypted_token},
-        )
         email_token_expired_at = datetime.today() + timedelta(1)
         # Update the user's email_verified_at field
         user_data.email_verify_token = reset_token
@@ -424,92 +325,11 @@ def forgot_password(
         handle_router_exception(e)
 
 
-# HTML template for password RESET
-PASSWORD_RESET_TEMPLATE = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Password Reset</title>
-</head>
-<body>
-    <h1>Password Reset</h1>
-    {% if error %}
-        <p style="color: red;">{{ error }}</p>
-    {% endif %}
-    <form action="/auth/reset-password" method="post" autocomplete="off">
-        <label for="email">Enter your email address:</label><br><br>
-        <input type="email" id="email" name="email" value="{{ email }}" required autocomplete="off"><br><br>
-        
-        <label for="password">Enter new password:</label><br><br>
-        <input type="password" id="password" name="password" value="" required autocomplete="new-password"><br><br>
-
-        <label for="confirm_password">Confirm new password:</label><br><br>
-        <input type="password" id="confirm_password" name="confirm_password" value="" required autocomplete="new-password"><br><br>
-        
-        <input type="hidden" name="token" value="{{ token }}">
-        <input type="submit" value="Reset Password">
-    </form>
-</body>
-</html>
-"""
-
-
-@router.get("/reset-password", response_class=HTMLResponse)
-def reset_password(
-    request: Request, email: str, token: str, db: Annotated[Session, Depends(get_db)]
-):
-    """
-    Handle GET requests for reset password using a token.
-
-    :param request: The HTTP request object.
-    :param token: The email verification token.
-    :param db: The SQLAlchemy session.
-    :return: HTML page to reset user password.
-    """
-
-    # Get the encryption key from the environment variable
-    encryption_key = settings.CRYPTO_SECRET_KEY
-
-    # Check if the key was loaded successfully
-    if not encryption_key:
-        raise ValueError(
-            "Encryption key not found. Please set 'CRYPTO_SECRET_KEY' in your .env file."
-        )
-
-    cipher_suite = Fernet(encryption_key)
-
-    decrypted_token = cipher_suite.decrypt(token).decode()
-
-    # Check if the token exists in the database and is valid
-    user = find_one(db, email=email, email_verify_token=decrypted_token)
-
-    if not user:
-        return HTMLResponse(
-            content="<h1>Invalid or expired token.</h1>", status_code=400
-        )
-
-    # Check if the token has expired (assuming you have an expiration date in the database)
-    if user.email_verify_expired_at:
-        email_expiry = user.email_verify_expired_at.replace(
-            tzinfo=timezone.utc
-        ).strftime("%Y%m%d%H%I")
-        today = datetime.now(timezone.utc).strftime("%Y%m%d%H%I")
-        if email_expiry < today:
-            raise HTTPException(status_code=400, detail="Token has expired.")
-
-    else:
-        raise HTTPException(status_code=400, detail="Token has expired.")
-
-    # Render the HTML form where the user can enter their email address
-    template = Template(PASSWORD_RESET_TEMPLATE)
-    return HTMLResponse(template.render(token=token, email=email))
-
-
 @router.post(
     "/reset-password",
     summary="Reset user password",
     description="This endpoint resets the user's password using the provided token.",
-    response_class=HTMLResponse,
+    response_class=JSONResponse,
 )
 def reset_password(
     db: Annotated[Session, Depends(get_db)],
@@ -531,7 +351,7 @@ def reset_password(
     try:
         # Validate the passwords match
         if password != confirm_password:
-            return HTMLResponse(
+            return JSONResponse(
                 content="Passwords do not match. Please try again.", status_code=400
             )
 
@@ -542,29 +362,16 @@ def reset_password(
             or not any(char.isdigit() for char in password)
             or not any(char in "!@#$%^&*()_+" for char in password)
         ):
-            return HTMLResponse(
+            return JSONResponse(
                 content="Password does not meet strength requirements. It must be at least 8 characters long, contain at least one uppercase letter, one digit, and one special character.",
                 status_code=400,
             )
 
-        # Get the encryption key from the environment variable
-        encryption_key = settings.CRYPTO_SECRET_KEY
-
-        # Check if the key was loaded successfully
-        if not encryption_key:
-            raise ValueError(
-                "Encryption key not found. Please set 'CRYPTO_SECRET_KEY' in your .env file."
-            )
-
-        cipher_suite = Fernet(encryption_key)
-
-        decrypted_token = cipher_suite.decrypt(token).decode()
-
         # Check if the email and token are valid
-        result = user.find_one(db, email=email, email_verify_token=decrypted_token)
+        result = user.find_one(db, email=email, email_verify_token=token)
 
         if not result:
-            return HTMLResponse(
+            return JSONResponse(
                 content="Invalid email or token. Please try again.", status_code=400
             )
 
@@ -575,12 +382,12 @@ def reset_password(
             ).strftime("%Y%m%d%H%I")
             today = datetime.now(timezone.utc).strftime("%Y%m%d%H%I")
             if email_expiry < today:
-                return HTMLResponse(
+                return JSONResponse(
                     content="Token has expired. Please request a new password reset.",
                     status_code=400,
                 )
         else:
-            return HTMLResponse(
+            return JSONResponse(
                 content="Verification Failed! Token has expired. Please request a new verification email.",
                 status_code=400,
             )
@@ -596,7 +403,7 @@ def reset_password(
         db.commit()  # Commit the changes to the database
         db.refresh(result)  # Refresh the instance with updated data
 
-        return HTMLResponse(
+        return JSONResponse(
             content="Password reset successfully! You may now log in with your new password."
         )
 
