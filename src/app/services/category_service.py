@@ -1,40 +1,23 @@
-from typing import List, Optional
+from datetime import datetime, timezone
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from src.app.models.category import Category
 from src.app.schemas.category import CategoryCreate, CategoryUpdate
-from datetime import datetime, timezone
+from src.app.services.base import BaseService
 
 
-class CategoryService:
+class CategoryService(BaseService):
     def __init__(self, db: Session):
-        self.db = db
-
-    def find_one(self, **filters) -> Optional[Category]:
-        """
-        Find a single category by given filters.
-        """
-        return (
-            self.db.query(Category)
-            .filter_by(**filters)
-            .filter(Category.deleted_at.is_(None))
-            .first()
-        )
-
-    def find_all(self, **filters) -> List[Category]:
-        """
-        Find all categories matching given filters.
-        """
-        return (
-            self.db.query(Category)
-            .filter_by(**filters)
-            .filter(Category.deleted_at.is_(None))
-            .all()
-        )
+        super().__init__(db, Category)
 
     def create(self, payload: CategoryCreate) -> Category:
-        """
-        Create a new category.
-        """
+        existing = self.find_one(name=payload.name)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Category name already exists.",
+            )
+
         category = Category(
             name=payload.name,
             description=payload.description,
@@ -43,13 +26,21 @@ class CategoryService:
         self.db.flush()
         return category
 
-    def update(self, category_id: int, payload: CategoryUpdate) -> Optional[Category]:
-        """
-        Update an existing category.
-        """
-        category = self.db.query(Category).filter_by(id=category_id).first()
+    def update(self, category_id: int, payload: CategoryUpdate) -> Category:
+        category = self.find_one(id=category_id)
         if not category:
-            return None
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Category not found.",
+            )
+
+        if payload.name and payload.name != category.name:
+            existing = self.find_one(Category.id != category_id, name=payload.name)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Category name already exists.",
+                )
 
         for key, value in payload.dict(exclude_unset=True).items():
             setattr(category, key, value)
@@ -58,10 +49,7 @@ class CategoryService:
         return category
 
     def delete(self, category_id: int) -> bool:
-        """
-        Soft delete a category by setting deleted_at timestamp.
-        """
-        category = self.db.query(Category).filter_by(id=category_id).first()
+        category = self.db.query(self.model).filter_by(id=category_id).first()
         if not category or category.deleted_at is not None:
             return False
 

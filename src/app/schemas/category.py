@@ -19,15 +19,12 @@ class CategoryCreate(BaseModel):
         return v
 
 
-class CategoryUpdate(CategoryBase):
-    deleted_at: Optional[datetime] = None
+class CategoryUpdate(CategoryCreate):
+    pass
 
 
 class CategoryResponse(CategoryBase):
     id: int
-    created_at: datetime
-    updated_at: datetime
-    deleted_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

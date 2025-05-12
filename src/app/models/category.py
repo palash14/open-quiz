@@ -15,6 +15,7 @@ class Category(Base):
     updated_at = Column(
         DateTime, default=func.now(), onupdate=func.now(), nullable=False
     )
+    deleted_at = Column(DateTime, nullable=True)
 
     # Relationship with Question
     questions = relationship("Question", back_populates="category")

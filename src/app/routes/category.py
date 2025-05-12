@@ -29,12 +29,55 @@ def create_category(
 ):
     try:
         service = CategoryService(db)
-        service.create(request)
+        category = service.create(request)
 
-        # Commit the transaction
         db.commit()
+        return CategoryResponse.model_validate(category)
     except Exception as e:
         logger.error(e)
-        # Rollback any changes made in the current session
+        db.rollback()
+        handle_router_exception(e)
+
+
+@router.get(
+    "/",
+    summary="Get all Categories",
+    description="Retrieve all Categories.",
+    response_model=List[CategoryResponse],
+    status_code=status.HTTP_200_OK,
+)
+def get_category(
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        service = CategoryService(db)
+        categories = service.find_all()
+
+        return [CategoryResponse.model_validate(category) for category in categories]
+    except Exception as e:
+        logger.error(e)
+        handle_router_exception(e)
+
+
+@router.put(
+    "/{category_id}",
+    summary="Update Category",
+    description="Update an existing Category.",
+    response_model=CategoryResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_category(
+    category_id: int,
+    request: CategoryUpdate,
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        service = CategoryService(db)
+        category = service.update(category_id, request)
+
+        db.commit()
+        return CategoryResponse.model_validate(category)
+    except Exception as e:
+        logger.error(e)
         db.rollback()
         handle_router_exception(e)

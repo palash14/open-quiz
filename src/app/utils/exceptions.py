@@ -17,6 +17,7 @@ async def custom_validation_exception_handler(
         content={"errors": errors},
     )
 
+
 def handle_router_exception(e: Exception) -> None:
     """
     Centralized exception handler to rollback the database session and raise an HTTPException.
@@ -33,24 +34,15 @@ def handle_router_exception(e: Exception) -> None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Integrity error: {str(e.orig)}",
-            headers={
-                "X-Error-Detail": str(e)
-            },  # Additional error details for debugging purposes
         )
     elif isinstance(e, SQLAlchemyError):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="A database error occurred. Please try again later.",
-            headers={
-                "X-Error-Detail": str(e)
-            },  # Additional error details for debugging purposes
         )
 
     # Handle all other types of exceptions
     raise HTTPException(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         detail="An unexpected error occurred. Please try again later.",
-        headers={
-            "X-Error-Detail": str(e)
-        },  # Additional error details for debugging purposes
     )
