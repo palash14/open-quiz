@@ -126,3 +126,12 @@ To use this Makefile effectively:
  RUN pip install black flake8 isort pytest coverage
  Make the commands executable:
  chmod +x Makefile
+
+For generate SESSION_SECRET_KEY value in .env
+<code>python3 -c "import secrets; print(secrets.token_urlsafe(32))"</code>
+
+For generate JWT SECRET_KEY value in .env
+<code>python3 -c "import secrets; print(secrets.token_urlsafe(64))"</code>
+
+for generate CRYPTO_SECRET_KEY value in .env
+<code>python3 -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"</code>
