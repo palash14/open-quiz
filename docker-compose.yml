@@ -78,21 +78,21 @@ services:
       retries: 3
       timeout: 5s
 
-  # celery:
-  #   build:
-  #     dockerfile: Dockerfile.celery
-  #   container_name: celery_worker
-  #   image: quiz-api-celery
-  #   volumes:
-  #     - ./src:/app/src
-  #   networks:
-  #     - quiz-api-network
-  #   restart: unless-stopped
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
+  celery:
+    build:
+      dockerfile: Dockerfile.celery
+    container_name: celery_worker
+    image: quiz-api-celery
+    volumes:
+      - ./src:/app/src
+    networks:
+      - quiz-api-network
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
 
 networks:
   quiz-api-network:
