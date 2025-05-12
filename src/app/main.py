@@ -1,7 +1,7 @@
 # src/app/main.py
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
-from src.app.routes import quiz, category
+from src.app.routes import quiz, category, question
 from src.app.core.swagger import custom_openapi
 from src.app.utils.exceptions import custom_validation_exception_handler
 from src.app.core.config import settings
@@ -21,3 +21,4 @@ app.openapi = lambda: custom_openapi(app)
 app.include_router(quiz.router)
 # app.include_router(auth.router)
 app.include_router(category.router)
+app.include_router(question.router)

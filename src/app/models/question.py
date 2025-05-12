@@ -38,24 +38,22 @@ class Question(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
 
-    question = Column(Text, unique=True, nullable=False)
+    question = Column(String(200), unique=True, nullable=False)
     question_type = Column(
         Enum(QuestionTypeEnum), default=QuestionTypeEnum.multiple_choice, nullable=False
     )
-
     status = Column(
         Enum(QuestionStatusEnum), default=QuestionStatusEnum.draft, nullable=False
     )
-    review_comment = Column(String(200), nullable=True)
-
     difficulty = Column(
         Enum(QuestionDifficultyEnum),
         default=QuestionDifficultyEnum.medium,
         nullable=False,
     )
-
     is_published = Column(Boolean, default=False, nullable=False)
+    review_comment = Column(String(200), nullable=True)
     explanation = Column(Text, nullable=True)
+    references = Column(Text, nullable=True)
 
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(
