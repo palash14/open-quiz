@@ -18,6 +18,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
 
   db:
     image: postgres:15-alpine
@@ -30,7 +32,7 @@ services:
     networks:
       - quiz-api-network
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -51,20 +53,20 @@ services:
       - ADMINER_DEFAULT_DRIVER=postgresql
 
   mailpit:
-    image: 'axllent/mailpit:latest'
+    image: "axllent/mailpit:latest"
     ports:
-      - '${FORWARD_MAILPIT_PORT:-1025}:1025'
-      - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
+      - "${FORWARD_MAILPIT_PORT:-1025}:1025"
+      - "${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025"
     networks:
       - quiz-api-network
 
   redis:
-    image: 'redis:alpine'
+    image: "redis:alpine"
     container_name: quiz-api-redis
     ports:
-      - '${FORWARD_REDIS_PORT:-6379}:6379'
+      - "${FORWARD_REDIS_PORT:-6379}:6379"
     volumes:
-      - 'redis_data:/data'
+      - "redis_data:/data"
     networks:
       - quiz-api-network
     healthcheck:
@@ -75,20 +77,21 @@ services:
       retries: 3
       timeout: 5s
 
-  celery:
-    build:
-      dockerfile: Dockerfile.celery-worker
-    container_name: celery_worker
-    image: quiz-api-celery
-    depends_on:
-      - web
-      - pgsql
-      - redis
-    volumes:
-      - ./:/app
-    networks:
-      - quiz-api-network
-    restart: unless-stopped
+  # celery:
+  #   build:
+  #     dockerfile: Dockerfile.celery
+  #   container_name: celery_worker
+  #   image: quiz-api-celery
+  #   volumes:
+  #     - ./src:/app/src
+  #   networks:
+  #     - quiz-api-network
+  #   restart: unless-stopped
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
 
 networks:
   quiz-api-network:
