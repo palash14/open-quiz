@@ -30,7 +30,7 @@ services:
     networks:
       - quiz-api-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: [ "CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB" ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -50,9 +50,51 @@ services:
       - ADMINER_DEFAULT_SERVER=quiz-api-db
       - ADMINER_DEFAULT_DRIVER=postgresql
 
+  mailpit:
+    image: 'axllent/mailpit:latest'
+    ports:
+      - '${FORWARD_MAILPIT_PORT:-1025}:1025'
+      - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025'
+    networks:
+      - quiz-api-network
+
+  redis:
+    image: 'redis:alpine'
+    container_name: quiz-api-redis
+    ports:
+      - '${FORWARD_REDIS_PORT:-6379}:6379'
+    volumes:
+      - 'redis_data:/data'
+    networks:
+      - quiz-api-network
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      retries: 3
+      timeout: 5s
+
+  celery:
+    build:
+      dockerfile: Dockerfile.celery-worker
+    container_name: celery_worker
+    image: quiz-api-celery
+    depends_on:
+      - web
+      - pgsql
+      - redis
+    volumes:
+      - ./:/app
+    networks:
+      - quiz-api-network
+    restart: unless-stopped
+
 networks:
   quiz-api-network:
     driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:
+    driver: local
