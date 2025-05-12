@@ -48,11 +48,19 @@ class CategoryService(BaseService):
         self.db.flush()
         return category
 
-    def delete(self, category_id: int) -> bool:
-        category = self.db.query(self.model).filter_by(id=category_id).first()
-        if not category or category.deleted_at is not None:
-            return False
+    def delete(self, category_id: int) -> None:
+        """
+        Soft delete a category by setting deleted_at timestamp.
+        """
+        category = self.get_by_id(record_id=category_id)
 
+        # If category not found or already deleted, raise an exception
+        if not category:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Category not found.",
+            )
+
+        # Soft delete the category by setting the deleted_at timestamp
         category.deleted_at = datetime.now(timezone.utc)
         self.db.flush()
-        return True
