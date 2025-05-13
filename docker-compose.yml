@@ -81,7 +81,7 @@ services:
   celery:
     build:
       dockerfile: Dockerfile.celery
-    container_name: celery_worker
+    container_name: quiz-api-celery
     image: quiz-api-celery
     volumes:
       - ./src:/app/src
