@@ -42,8 +42,8 @@ def get_questions(
     db: Annotated[Session, Depends(get_db)],
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
-    sort_by: Optional[str] = Query(SortByField.id),
-    sort_order: Optional[str] = Query(SortByOrder.desc),
+    sort_by: SortByField = Query(SortByField.id),
+    sort_order: SortByOrder = Query(SortByOrder.desc),
 ):
     try:
         service = QuestionService(db)
