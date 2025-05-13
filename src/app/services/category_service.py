@@ -3,7 +3,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from src.app.models.category import Category
 from src.app.schemas.category import CategoryCreate, CategoryUpdate
-from src.app.services.base import BaseService
+from src.app.services.base_service import BaseService
 
 
 class CategoryService(BaseService):
@@ -52,7 +52,7 @@ class CategoryService(BaseService):
         """
         Soft delete a category by setting deleted_at timestamp.
         """
-        category = self.get_by_id(record_id=category_id)
+        category = self.find_by_id(record_id=category_id)
 
         # If category not found or already deleted, raise an exception
         if not category:

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from slugify import slugify
 from datetime import datetime, timezone
 from fastapi import HTTPException, status
@@ -7,7 +7,7 @@ from src.app.models.question import Question
 from src.app.models.choice import Choice
 from src.app.schemas.question import QuestionCreate, QuestionUpdate
 from src.app.schemas.choice import ChoiceSync
-from src.app.services.base import BaseService
+from src.app.services.base_service import BaseService
 
 
 class QuestionService(BaseService):
@@ -51,11 +51,20 @@ class QuestionService(BaseService):
     def update(self, question_id: int, payload: QuestionUpdate) -> Question:
         """Update an existing question."""
         # Find the question by ID
-        question = self.get_by_id(record_id=question_id)
+        question = self.find_by_id(record_id=question_id)
         if not question:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Question not found.",
+            )
+
+        # Check if question with same slug exists
+        slug = self.generate_slug(f"{payload.question}-{payload.category_id}")
+        existing = self.find_one(Question.id != question_id, slug=slug)
+        if existing:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Question already exists.",
             )
 
         # Update the fields of the question
@@ -73,7 +82,7 @@ class QuestionService(BaseService):
     def delete(self, question_id: int) -> None:
         """Soft delete a question by setting deleted_at timestamp."""
         # Find the question by ID
-        question = self.get_by_id(record_id=question_id)
+        question = self.find_by_id(question_id)
         if not question:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -151,3 +160,31 @@ class QuestionService(BaseService):
 
         # Commit changes to the database
         self.db.flush()
+
+    def paginate_questions(
+        self,
+        page: int = 1,
+        page_size: int = 10,
+        sort_by: str = "id",
+        sort_order: str = "asc",
+        user_name: Optional[str] = None,
+        category: Optional[str] = None,
+        question: Optional[str] = None,
+        response_model=None,
+    ):
+        builder = self.builder()
+
+        if user_name:
+            builder = builder.where_relation(Question.user, "name", user_name)
+
+        if category:
+            builder = builder.where_relation_like(Question.category, "name", category)
+
+        if question:
+            builder = builder.where(Question.question.ilike(f"%{question}%"))
+
+        return builder.order_by(sort_by, sort_order).paginate(
+            page=page,
+            page_size=page_size,
+            response_model=response_model,
+        )

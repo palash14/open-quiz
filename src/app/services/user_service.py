@@ -7,7 +7,7 @@ from fastapi import HTTPException, status
 from typing import Optional
 from random import randint
 from datetime import timedelta, datetime
-from src.app.services.base import BaseService
+from src.app.services.base_service import BaseService
 
 
 class UserService(BaseService):

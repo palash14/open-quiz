@@ -44,14 +44,20 @@ def get_questions(
     page_size: int = Query(10, ge=1, le=100),
     sort_by: SortByField = Query(SortByField.id),
     sort_order: SortByOrder = Query(SortByOrder.desc),
+    user_name: Optional[str] = Query(None, max_length=200),
+    category: Optional[str] = Query(None, max_length=100),
+    question: Optional[str] = Query(None, max_length=200),
 ):
     try:
         service = QuestionService(db)
-        paginated_questions = service.paginate(
+        paginated_questions = service.paginate_questions(
             page=page,
             page_size=page_size,
             sort_by=sort_by,
             sort_order=sort_order,
+            user_name=user_name,
+            category=category,
+            question=question,
             response_model=QuestionResponse,
         )
 
@@ -123,7 +129,7 @@ def get_question(
 ):
     try:
         service = QuestionService(db)
-        question = service.get_by_id(question_id)
+        question = service.find_by_id(question_id)
 
         return QuestionResponse.model_validate(question)
     except Exception as e:
