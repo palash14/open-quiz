@@ -23,16 +23,12 @@ class BaseService:
         with_trashed: bool = False,
         **filters,
     ) -> Optional[T]:
-        builder = self.builder(with_trashed)
-
-        for expr in expressions:
-            builder.query = builder.query.filter(expr)
-
-        if filters:
-            builder = builder.where(**filters)
-
-        builder = builder.order_by(sort_by, sort_order)
-        return builder.first()
+        return (
+            self.builder(with_trashed)
+            .where(*expressions, **filters)
+            .order_by(sort_by, sort_order)
+            .first()
+        )
 
     def find_all(
         self,
@@ -42,16 +38,12 @@ class BaseService:
         with_trashed: bool = False,
         **filters,
     ) -> List[T]:
-        builder = self.builder(with_trashed)
-
-        for expr in expressions:
-            builder.query = builder.query.filter(expr)
-
-        if filters:
-            builder = builder.where(**filters)
-
-        builder = builder.order_by(sort_by, sort_order)
-        return builder.all()
+        return (
+            self.builder(with_trashed)
+            .where(*expressions, **filters)
+            .order_by(sort_by, sort_order)
+            .all()
+        )
 
     def find_by_id(
         self, record_id: Union[int, str], with_trashed: bool = False

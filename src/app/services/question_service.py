@@ -8,6 +8,8 @@ from src.app.models.choice import Choice
 from src.app.schemas.question import QuestionCreate, QuestionUpdate
 from src.app.schemas.choice import ChoiceSync
 from src.app.services.base_service import BaseService
+from src.app.models.user import User
+from src.app.models.category import Category
 
 
 class QuestionService(BaseService):
@@ -175,10 +177,10 @@ class QuestionService(BaseService):
         builder = self.builder()
 
         if user_name:
-            builder = builder.where_relation(Question.user, "name", user_name)
+            builder = builder.where_relation(User, "name", user_name)
 
         if category:
-            builder = builder.where_relation_like(Question.category, "name", category)
+            builder = builder.where_relation_like(Category, "name", category)
 
         if question:
             builder = builder.where(Question.question.ilike(f"%{question}%"))

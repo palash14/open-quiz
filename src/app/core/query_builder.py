@@ -24,8 +24,11 @@ class QueryBuilder(Generic[T]):
         self.query = self.db.query(self.model)
         return self
 
-    def where(self, **filters) -> "QueryBuilder":
-        self.query = self.query.filter_by(**filters)
+    def where(self, *expressions, **filters) -> "QueryBuilder":
+        if expressions:
+            self.query = self.query.filter(*expressions)
+        if filters:
+            self.query = self.query.filter_by(**filters)
         return self
 
     def where_like(self, field: str, value: str) -> "QueryBuilder":

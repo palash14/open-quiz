@@ -7,6 +7,7 @@ from src.app.models.question import (
 )
 from src.app.schemas.category import CategoryResponse
 from src.app.schemas.choice import ChoiceResponse, ChoiceSync
+from src.app.schemas.user import UserNameResponse
 
 
 class QuestionBase(BaseModel):
@@ -44,6 +45,18 @@ class QuestionUpdate(QuestionBase):
 
 
 # Full question response with nested fields
+class QuestionMinimalResponse(BaseModel):
+    id: int
+    user: UserNameResponse
+    category: Optional[CategoryResponse]
+    question: str
+    question_type: QuestionTypeEnum
+    difficulty: QuestionDifficultyEnum
+
+    class Config:
+        from_attributes = True
+
+
 class QuestionResponse(BaseModel):
     id: int
     user_id: int
@@ -63,7 +76,7 @@ class QuestionResponse(BaseModel):
 
 
 class PaginateQuestionResponse(BaseModel):
-    items: List[QuestionResponse]
+    items: List[QuestionMinimalResponse]
     total: int
     page: int
     page_size: int

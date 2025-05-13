@@ -6,6 +6,7 @@ from src.app.core.database import get_db
 from src.app.schemas.question import (
     QuestionCreate,
     QuestionResponse,
+    QuestionMinimalResponse,
     PaginateQuestionResponse,
 )
 from src.app.services.question_service import QuestionService
@@ -58,7 +59,7 @@ def get_questions(
             user_name=user_name,
             category=category,
             question=question,
-            response_model=QuestionResponse,
+            response_model=QuestionMinimalResponse,
         )
 
         return PaginateQuestionResponse.model_validate(paginated_questions)

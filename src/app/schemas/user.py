@@ -89,6 +89,13 @@ class UserResponse(BaseModel):
         from_attributes = True
 
 
+class UserNameResponse(BaseModel):
+    name: str
+
+    class Config:
+        from_attributes = True
+
+
 class ChangePasswordRequest(BaseModel):
     old_password: str = Field(
         ...,
