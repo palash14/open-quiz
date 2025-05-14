@@ -6,7 +6,7 @@ celery = Celery(
     "quiz_worker",
     broker=f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/0",
     backend=f"redis://{settings.REDIS_HOST}:{settings.REDIS_PORT}/1",  # Use a different DB index for backend
-    include=["queue_task"],
+    include=["src.celery.queue_task"],
 )
 
 celery.conf.update(

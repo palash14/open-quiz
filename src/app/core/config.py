@@ -16,6 +16,8 @@ class Settings(BaseSettings):
     DEBUG: bool = os.getenv("DEBUG", False)
     LOG_DIR_PATH: str = os.getenv("LOG_DIR_PATH", "/app/logs/")
 
+
+
     # Database Configuration
     DATABASE_URI: Optional[PostgresDsn] = os.getenv("DATABASE_URI", None)
     DB_POOL_SIZE: int = 5
@@ -25,8 +27,36 @@ class Settings(BaseSettings):
 
     # Security Configuration
     SECRET_KEY: str = os.getenv("SECRET_KEY", "secret_key")
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7
-    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", (60 * 24 * 7))
+    JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")
+    REFRESH_TOKEN_EXPIRE_DAYS: int = os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", 30)
+
+    # SMTP server configuration
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "mailpit")
+    SMTP_PORT: int = os.getenv("SMTP_PORT", 1025)
+    SMTP_USERNAME: str = os.getenv("SMTP_USERNAME", "")
+    SMTP_PASSWORD: str = os.getenv("SMTP_PASSWORD", "")
+    SMTP_ENCRYPTION: str = os.getenv("SMTP_ENCRYPTION", "")
+    SENDER_EMAIL: str = os.getenv("SENDER_EMAIL", "no-reply@example.com")
+    MAIL_FROM_NAME: str = os.getenv("MAIL_FROM_NAME", "${PROJECT_NAME}")
+
+    # REDIS
+    REDIS_HOST: str = os.getenv("REDIS_HOST", "redis")
+    REDIS_PORT: int = os.getenv("REDIS_PORT", 6379)
+    REDIS_QUEUE_EMAIL: str = os.getenv("REDIS_QUEUE_EMAIL", "email")
+
+    # Google OAuth settings
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+    GOOGLE_REDIRECT_URI: str = os.getenv("GOOGLE_REDIRECT_URI", "")
+    GOOGLE_AUTHORIZATION_BASE_URL: str = os.getenv("GOOGLE_AUTHORIZATION_BASE_URL", "")
+    GOOGLE_TOKEN_URL: str = os.getenv("GOOGLE_TOKEN_URL", "")
+    GOOGLE_SCOPE: str = os.getenv("GOOGLE_SCOPE", "")
+
+    # Github OAuth settings
+    GITHUB_CLIENT_ID: str = os.getenv("GITHUB_CLIENT_ID", "")
+    GITHUB_CLIENT_SECRET: str = os.getenv("GITHUB_CLIENT_SECRET", "")
+    GITHUB_REDIRECT_URI: str = os.getenv("GITHUB_REDIRECT_URI", "")
 
     # CORS Configuration
     CORS_ALLOW_ORIGINS: List[str] = ["*"]

@@ -1,3 +1,4 @@
+# File: src/celery/queue_task.py
 from src.celery.celery_config import celery
 from src.celery.utils.email_worker import (
     send_verification_email,
