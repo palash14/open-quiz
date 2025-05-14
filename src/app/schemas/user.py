@@ -4,6 +4,7 @@ from pydantic import BaseModel, EmailStr, Field, validator
 from fastapi import HTTPException, status
 from typing import Optional
 from src.app.models.user import UserStatusEnum
+import re
 
 
 class UserBase(BaseModel):
@@ -27,46 +28,27 @@ class UserCreate(UserBase):
         # Additional custom email validation (on top of Pydantic's EmailStr validation)
         regex = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
         if not re.match(regex, v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format!"
-            )
+            raise ValueError("Invalid email format!")
         return v
 
     @validator("name")
     def validate_name(cls, v):
         if not v or v.strip() == "":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="name cannot be empty"
-            )
+            raise ValueError("Name cannot be empty")
         return v
 
     @validator("password")
     def validate_password_strength(cls, v):
         if not re.search(r"[A-Z]", v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one uppercase letter",
-            )
+            raise ValueError("Password must contain at least one uppercase letter")
         if not re.search(r"[a-z]", v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one lowercase letter",
-            )
+            raise ValueError("Password must contain at least one lowercase letter")
         if not re.search(r"[0-9]", v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one number",
-            )
+            raise ValueError("Password must contain at least one number")
         if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one special character",
-            )
+            raise ValueError("Password must contain at least one special character")
         if len(v) < 8:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be at least 8 characters long",
-            )
+            raise ValueError("Password must be at least 8 characters long")
         return v
 
 

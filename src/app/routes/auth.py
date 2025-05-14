@@ -20,6 +20,7 @@ from src.app.core.config import settings
 from src.app.schemas.auth import ForgotPasswordValidator
 from src.app.services.user_service import UserService
 from src.app.core.logger import create_logger
+from src.celery.queue_task import send_verification_email_task
 
 auth_logger = create_logger("auth_logger", "route_auth.log")
 
@@ -28,10 +29,6 @@ router = APIRouter(
     tags=["Authentication"],
     responses={404: {"description": "Not found"}},
 )
-
-
-class RegistrationForm(BaseModel):
-    user: UserCreate
 
 
 class RegistrationResponse(BaseModel):
@@ -64,7 +61,7 @@ class Token(BaseModel):
     status_code=status.HTTP_201_CREATED,
 )
 def register(
-    request: RegistrationForm,
+    request: UserCreate,
     db: Annotated[Session, Depends(get_db)],
 ) -> RegistrationResponse:
     """
@@ -93,12 +90,12 @@ def register(
         new_user = user_service.create(request)
 
         # Generate email verification token
-        # email_otp = new_user.email_verify_token
+        email_otp = new_user.email_verify_token
 
         # Queue the email verification task
-        # send_verification_email_task.apply_async(
-        #     args=[new_user.email, email_otp], queue="email_queue"
-        # )
+        send_verification_email_task.apply_async(
+            args=[new_user.email, email_otp], queue="email_queue"
+        )
 
         # Commit the transaction after all operations are successful
         db.commit()
