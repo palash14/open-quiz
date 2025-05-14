@@ -51,9 +51,9 @@ def get_category(
 ):
     try:
         service = CategoryService(db)
-        categories = service.find_all()
+        categories = service.find_all(sort_by="id", sort_order="desc")
 
-        return [CategoryResponse.model_validate(category) for category in categories]
+        return [CategoryResponse.from_orm(category) for category in categories]
     except Exception as e:
         logger.error(e)
         handle_router_exception(e)
@@ -72,7 +72,7 @@ def get_category_by_id(
 ):
     try:
         service = CategoryService(db)
-        category = service.get_by_id(record_id=category_id)
+        category = service.find_by_id(category_id)
 
         if not category:
             raise HTTPException(

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, validator
+from typing import Optional
 
 
 class ChoiceBase(BaseModel):
@@ -14,12 +15,8 @@ class ChoiceBase(BaseModel):
         return v
 
 
-class ChoiceCreate(ChoiceBase):
-    pass
-
-
-class ChoiceUpdate(ChoiceBase):
-    pass
+class ChoiceSync(ChoiceBase):
+    id: Optional[int]
 
 
 class ChoiceResponse(ChoiceBase):

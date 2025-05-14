@@ -39,6 +39,7 @@ class Question(Base):
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
 
     question = Column(String(200), unique=True, nullable=False)
+    slug = Column(String(200), unique=True, nullable=False)
     question_type = Column(
         Enum(QuestionTypeEnum), default=QuestionTypeEnum.multiple_choice, nullable=False
     )
