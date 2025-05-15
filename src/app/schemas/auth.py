@@ -1,113 +1,82 @@
 # File: src/app/schemas/auth.py
 
-from pydantic import BaseModel, EmailStr, Field, validator
-from fastapi import HTTPException, status
-import re
-
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from src.app.schemas.user import UserResponse
+from src.app.schemas.validators import CommonValidators
 
 class EmailVerifyValidator(BaseModel):
     email: EmailStr
-    email_verify_token: str = Field(
-        ...,
-        min_length=3,
-        max_length=200,
-        description="Token must be between 3 and 200 characters.",
+    token: str = Field(
+        ..., min_length=3, max_length=200,
+        description="Token must be between 3 and 200 characters."
     )
 
-    @validator("email_verify_token")
-    def validate_email_verify_token(cls, v):
-        if not v or v.strip() == "":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="token cannot be empty"
-            )
-        return v
+    @field_validator("token")
+    @classmethod
+    def check_token(cls, v):
+        return CommonValidators.validate_non_empty_token(v)
 
-    @validator("email")
-    def validate_email(cls, v):
-        # Additional custom email validation (on top of Pydantic's EmailStr validation)
-        regex = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-        if not re.match(regex, v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format!"
-            )
-        return v
+    @field_validator("email")
+    @classmethod
+    def check_email(cls, v):
+        return CommonValidators.validate_email_format(v)
 
 
 class ForgotPasswordValidator(BaseModel):
     email: EmailStr
 
-    @validator("email")
-    def validate_email(cls, v):
-        # Additional custom email validation (on top of Pydantic's EmailStr validation)
-        regex = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-        if not re.match(regex, v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format"
-            )
-        return v
+    @field_validator("email")
+    @classmethod
+    def check_email(cls, v):
+        return CommonValidators.validate_email_format(v)
 
 
 class ResetPasswordValidator(BaseModel):
     email: EmailStr
     token: str = Field(
-        ...,
-        min_length=3,
-        max_length=200,
-        description="Token must be between 3 and 200 characters.",
+        ..., min_length=3, max_length=200,
+        description="Token must be between 3 and 200 characters."
     )
     password: str = Field(
-        ...,
-        min_length=4,
-        max_length=50,
-        description="Password must be between 4 and 50 characters.",
+        ..., min_length=4, max_length=50,
+        description="Password must be between 4 and 50 characters."
     )
 
-    @validator("token")
-    def validate_token(cls, v):
-        if not v or v.strip() == "":
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="token cannot be empty"
-            )
-        return v
+    @field_validator("token")
+    @classmethod
+    def check_token(cls, v):
+        return CommonValidators.validate_non_empty_token(v)
 
-    @validator("email")
-    def validate_email(cls, v):
-        # Additional custom email validation (on top of Pydantic's EmailStr validation)
-        regex = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-        if not re.match(regex, v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid email format"
-            )
-        return v
+    @field_validator("email")
+    @classmethod
+    def check_email(cls, v):
+        return CommonValidators.validate_email_format(v)
 
-    @validator("password")
-    def validate_password_strength(cls, v):
-        if not re.search(r"[A-Z]", v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one uppercase letter",
-            )
-        if not re.search(r"[a-z]", v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one lowercase letter",
-            )
-        if not re.search(r"[0-9]", v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one number",
-            )
-        if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", v):
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must contain at least one special character",
-            )
-        if len(v) < 8:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Password must be at least 8 characters long",
-            )
-        return v
+    @field_validator("password")
+    @classmethod
+    def check_password(cls, v):
+        return CommonValidators.validate_password_strength(v)
+
 
 class RefreshTokenRequest(BaseModel):
     refresh_token: str
+
+
+class AuthRouterResponse(BaseModel):
+    success: bool
+    detail: str
+
+
+class RegistrationResponse(AuthRouterResponse):
+    user: UserResponse
+
+
+class VerifyEmailRequest(AuthRouterResponse):
+    email: str
+    token: str
+
+
+class Token(AuthRouterResponse):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"

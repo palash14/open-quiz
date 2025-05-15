@@ -17,7 +17,14 @@ from src.app.utils.jwt import (
     create_user_token,
 )
 from src.app.core.config import settings
-from src.app.schemas.auth import ForgotPasswordValidator, RefreshTokenRequest
+from src.app.schemas.auth import (
+    EmailVerifyValidator,
+    ForgotPasswordValidator, 
+    RefreshTokenRequest,
+    AuthRouterResponse,
+    RegistrationResponse, 
+    Token
+)
 from src.app.services.user_service import UserService
 from src.app.core.logger import create_logger
 from src.app.tasks.queue_task import send_verification_email_task, send_forgot_email_task
@@ -29,28 +36,6 @@ router = APIRouter(
     tags=["Authentication"],
     responses={404: {"description": "Not found"}},
 )
-
-
-class RegistrationResponse(BaseModel):
-    success: bool
-    detail: str
-    user: UserResponse
-
-
-class VerifyEmailForm(BaseModel):
-    email: str
-    token: str
-
-
-class VerifyEmailResponse(BaseModel):
-    success: bool
-    detail: str
-
-
-class Token(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
 
 
 @router.post(
@@ -107,7 +92,6 @@ def register(
     except Exception as e:
         db.rollback()
         auth_logger.error(f"An error occurred while creating a user: {e}")
-        # raise e
         raise e
 
 
@@ -119,8 +103,7 @@ def register(
 )
 def verify_email(
     db: Annotated[Session, Depends(get_db)],
-    email: str = Form(...),
-    token: str = Form(...),
+    request: EmailVerifyValidator
 ):
     """
     Verifies the user's email address using the provided token and user ID. It updates the
@@ -133,7 +116,7 @@ def verify_email(
     """
     try:
         user_service = UserService(db)
-        result = user_service.find_one(email=email, email_verify_token=token)
+        result = user_service.find_one(email=request.email, email_verify_token=request.token)
 
         if not result:
             return JSONResponse(
@@ -267,13 +250,13 @@ async def refresh_access_token(request: RefreshTokenRequest):
     "/forgot-password",
     summary="Send a password reset email",
     description="This endpoint sends a password reset email to the user.",
-    response_model=VerifyEmailResponse,
+    response_model=AuthRouterResponse,
     status_code=status.HTTP_200_OK,
 )
 def forgot_password(
     request: ForgotPasswordValidator,
     db: Annotated[Session, Depends(get_db)],
-) -> VerifyEmailResponse:
+) -> AuthRouterResponse:
     """
     Handles the forgot password request. It generates a reset token and sends an email.
 
@@ -306,7 +289,7 @@ def forgot_password(
             args=[request.email, reset_token], queue="email_queue"
         )
 
-        return VerifyEmailResponse(
+        return AuthRouterResponse(
             success=True, detail="Password reset email sent successfully."
         )
 
@@ -396,17 +379,7 @@ def reset_password(
 
         return JSONResponse(
             content="Password reset successfully! You may now log in with your new password."
-        )
-
-    except ValidationError as e:
-        # If a Pydantic validation error occurs, return a 400 error with details
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST, content={"detail": e.errors()}
-        )
-
-    except HTTPException as http_exc:
-        # Re-raise known HTTP exceptions so FastAPI can handle them appropriately
-        raise http_exc
+        ) 
 
     except Exception as e:
         # Handle any unexpected errors
