@@ -1,12 +1,12 @@
-from typing import Annotated
+from typing import Annotated, Union
 from fastapi import APIRouter, Form, Depends, status, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, ValidationError
 from datetime import datetime, timezone, timedelta
-from src.app.core.database import get_db, get_field_value
-from src.app.utils.exceptions import handle_router_exception
+from src.app.core.database import get_db
+from src.app.utils.exceptions import ValidationException
 from src.app.schemas.user import UserCreate, UserResponse
 from src.app.utils.hashing import verify_password, hash_password
 from src.app.utils.jwt import (
@@ -17,10 +17,10 @@ from src.app.utils.jwt import (
     create_user_token,
 )
 from src.app.core.config import settings
-from src.app.schemas.auth import ForgotPasswordValidator
+from src.app.schemas.auth import ForgotPasswordValidator, RefreshTokenRequest
 from src.app.services.user_service import UserService
 from src.app.core.logger import create_logger
-from src.celery.queue_task import send_verification_email_task
+from src.celery.queue_task import send_verification_email_task, send_forgot_email_task
 
 auth_logger = create_logger("auth_logger", "route_auth.log")
 
@@ -63,7 +63,7 @@ class Token(BaseModel):
 def register(
     request: UserCreate,
     db: Annotated[Session, Depends(get_db)],
-) -> RegistrationResponse:
+) -> Union[RegistrationResponse, JSONResponse] :
     """
     Handles the registration of a user and sends an email verification link.
 
@@ -82,10 +82,7 @@ def register(
         )
 
         if existing_user_by_email:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User with this email already exists",
-            )
+            raise ValidationException("User with this email already exists")
         # Create user records
         new_user = user_service.create(request)
 
@@ -110,7 +107,8 @@ def register(
     except Exception as e:
         db.rollback()
         auth_logger.error(f"An error occurred while creating a user: {e}")
-        handle_router_exception(e)
+        # raise e
+        raise e
 
 
 @router.post(
@@ -134,8 +132,8 @@ def verify_email(
     :raises HTTPException: If the user is not found, the token is invalid, or the email is already verified.
     """
     try:
-
-        result = user.find_one(db, email=email, email_verify_token=token)
+        user_service = UserService(db)
+        result = user_service.find_one(email=email, email_verify_token=token)
 
         if not result:
             return JSONResponse(
@@ -184,7 +182,7 @@ def verify_email(
         # Log the exception (in a real-world application, use proper logging)
         print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while verify email: {e}")
-        handle_router_exception(e)
+        raise e
 
 
 @router.post(
@@ -209,7 +207,8 @@ async def login(
     :raises HTTPException: If user credentials are invalid or not found.
     """
     try:
-        user_data = user.find_one(db, email=form_data.username)
+        user_service = UserService(db)
+        user_data = user_service.find_one(email=form_data.username)
 
         if not user_data or not verify_password(form_data.password, user_data.password):
             raise HTTPException(
@@ -242,7 +241,7 @@ async def login(
     except Exception as e:
         print(f"{e}")
         auth_logger.error(f"An error occurred while login: {e}")
-        handle_router_exception(e)
+        raise e
 
 
 @router.post(
@@ -252,9 +251,9 @@ async def login(
     response_model=Token,
     status_code=status.HTTP_200_OK,
 )
-async def refresh_access_token(refresh_token: str):
+async def refresh_access_token(request: RefreshTokenRequest):
     try:
-        payload = decode_jwt_token(refresh_token)
+        payload = decode_jwt_token(request.refresh_token)
         if payload.get("type") != "refresh":
             raise HTTPException(status_code=400, detail="Invalid token type")
 
@@ -284,7 +283,8 @@ def forgot_password(
     :raises HTTPException: If the user is not found.
     """
     try:
-        user_data = user.find_one(db, email=request.email)
+        user_service = UserService(db)
+        user_data = user_service.find_one(email=request.email)
         if not user_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -292,7 +292,7 @@ def forgot_password(
             )
 
         # Generate password reset token
-        reset_token = generate_uuid()
+        reset_token = user_service.generate_otp()
 
         email_token_expired_at = datetime.today() + timedelta(1)
         # Update the user's email_verified_at field
@@ -303,23 +303,17 @@ def forgot_password(
 
         # Queue the password reset email task
         send_forgot_email_task.apply_async(
-            args=[request.email, reset_link], queue="email_queue"
+            args=[request.email, reset_token], queue="email_queue"
         )
 
         return VerifyEmailResponse(
             success=True, detail="Password reset email sent successfully."
         )
 
-    except ValidationError as e:
-        # If a Pydantic validation error occurs, return a 400 error with details
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST, content={"detail": e.errors()}
-        )
-
     except Exception as e:
         print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while forgot password: {e}")
-        handle_router_exception(e)
+        raise e
 
 
 @router.post(
@@ -419,4 +413,4 @@ def reset_password(
         db.rollback()  # Rollback the changes in case of an unexpected error
         print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while reset password: {e}")
-        handle_router_exception(e)
+        raise e

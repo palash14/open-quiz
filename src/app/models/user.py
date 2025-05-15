@@ -26,8 +26,8 @@ class UserStatusEnum(PyEnum):
 
 
 class UserTypeEnum(PyEnum):
-    guest = "guest"
-    authorized = "authorized"
+    is_admin = "admin"
+    is_user = "user"
 
 
 class User(Base):
@@ -43,7 +43,7 @@ class User(Base):
     email_verify_token = Column(String, nullable=True)
     email_verify_expired_at = Column(DateTime, nullable=True)
     status = Column(Enum(UserStatusEnum), default=UserStatusEnum.active, nullable=False)
-    user_type = Column(Enum(UserTypeEnum), default=UserTypeEnum.guest, nullable=False)
+    user_type = Column(Enum(UserTypeEnum), default=UserTypeEnum.is_user, nullable=False)
 
     created_at = Column(DateTime, default=func.now(), nullable=False)
     updated_at = Column(

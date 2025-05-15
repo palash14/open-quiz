@@ -40,7 +40,7 @@ def create_jwt_token(subject: str, expires_delta: timedelta = None) -> Tuple[str
         "type": "access",
     }
     access_token = jwt.encode(
-        access_token_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+        access_token_payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
     )
 
     # Refresh token (long-lived, e.g., 7 days)
@@ -53,7 +53,7 @@ def create_jwt_token(subject: str, expires_delta: timedelta = None) -> Tuple[str
         "type": "refresh",
     }
     refresh_token = jwt.encode(
-        refresh_token_payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM
+        refresh_token_payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
     )
 
     return access_token, refresh_token
@@ -90,7 +90,7 @@ def get_current_user(
     try:
         # Decode the JWT token
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
         )
         email: str = payload.get("sub")
 
@@ -156,7 +156,7 @@ def verify_password_reset_token(token: str) -> int:
 def decode_jwt_token(token: str) -> dict:
     try:
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
         )
         return payload
     except jwt.ExpiredSignatureError:
@@ -187,7 +187,7 @@ def validate_and_revoke_token(token: str, db: Session):
     """
     try:
         # Decode the token
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         email = payload.get("sub")
 
         # Fetch the token record from the database
@@ -216,7 +216,7 @@ def validate_and_revoke_token(token: str, db: Session):
 def verify_access_token(token: str) -> bool:
     try:
         jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM]
         )
         return True
     except jwt.ExpiredSignatureError:

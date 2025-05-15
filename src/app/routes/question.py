@@ -11,7 +11,6 @@ from src.app.schemas.question import (
 )
 from src.app.services.question_service import QuestionService
 from src.app.core.logger import create_logger
-from src.app.utils.exceptions import handle_router_exception
 from enum import Enum
 
 router = APIRouter(
@@ -65,7 +64,7 @@ def get_questions(
         return PaginateQuestionResponse.model_validate(paginated_questions)
     except Exception as e:
         logger.error(e)
-        handle_router_exception(e)
+        raise e
 
 
 @router.post(
@@ -89,7 +88,7 @@ def create_question(
     except Exception as e:
         logger.error(e)
         db.rollback()
-        handle_router_exception(e)
+        raise e
 
 
 @router.put(
@@ -114,7 +113,7 @@ def update_question(
     except Exception as e:
         logger.error(e)
         db.rollback()
-        handle_router_exception(e)
+        raise e
 
 
 @router.get(
@@ -135,4 +134,4 @@ def get_question(
         return QuestionResponse.model_validate(question)
     except Exception as e:
         logger.error(e)
-        handle_router_exception(e)
+        raise e

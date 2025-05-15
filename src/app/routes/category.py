@@ -5,8 +5,6 @@ from src.app.core.database import get_db
 from src.app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
 from src.app.services.category_service import CategoryService
 from src.app.core.logger import create_logger
-from src.app.utils.exceptions import handle_router_exception
-
 router = APIRouter(
     prefix="/categories",
     tags=["Category"],
@@ -36,7 +34,7 @@ def create_category(
     except Exception as e:
         logger.error(e)
         db.rollback()
-        handle_router_exception(e)
+        raise e
 
 
 @router.get(
@@ -56,7 +54,7 @@ def get_category(
         return [CategoryResponse.from_orm(category) for category in categories]
     except Exception as e:
         logger.error(e)
-        handle_router_exception(e)
+        raise e
 
 
 @router.get(
@@ -83,7 +81,7 @@ def get_category_by_id(
         return CategoryResponse.model_validate(category)
     except Exception as e:
         logger.error(e)
-        handle_router_exception(e)
+        raise e
 
 
 @router.put(
@@ -107,7 +105,7 @@ def update_category(
     except Exception as e:
         logger.error(e)
         db.rollback()
-        handle_router_exception(e)
+        raise e
 
 
 @router.delete(
@@ -128,4 +126,4 @@ def delete_category(
     except Exception as e:
         logger.error(e)
         db.rollback()
-        handle_router_exception(e)
+        raise e

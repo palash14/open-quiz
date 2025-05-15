@@ -4,7 +4,19 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 
 
-async def custom_validation_exception_handler(
+class ValidationException(Exception):
+    def __init__(self, message: str):
+        self.message = message
+
+
+async def validation_exception_handler(request: Request, exc: ValidationException):
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content={"success": False, "details": exc.message},
+    )
+
+
+async def request_validation_exception_handler(
     request: Request, exc: RequestValidationError
 ):
     errors = {}
@@ -25,31 +37,32 @@ async def custom_validation_exception_handler(
     )
 
 
-def handle_router_exception(e: Exception) -> None:
-    """
-    Centralized exception handler to rollback the database session and raise an HTTPException.
-
-    :param e: The caught exception.
-    :raises HTTPException: With appropriate status code and error details.
-    """
-    # Propagate already raised HTTPException without modification
-    if isinstance(e, HTTPException):
-        raise e
-
-    # Handle database-specific exceptions
-    if isinstance(e, IntegrityError):
-        raise HTTPException(
+async def sqlalchemy_exception_handler(request: Request, exc: SQLAlchemyError):
+    if isinstance(exc, IntegrityError):
+        return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Integrity error: {str(e.orig)}",
+            content={
+                "success": False,
+                "message": "Database integrity error.",
+                "details": str(exc.orig),
+            },
         )
-    elif isinstance(e, SQLAlchemyError):
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="A database error occurred. Please try again later.",
-        )
-
-    # Handle all other types of exceptions
-    raise HTTPException(
+    return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="An unexpected error occurred. Please try again later.",
+        content={
+            "success": False,
+            "message": "Database error occurred.",
+            "details": str(exc),
+        },
+    )
+
+
+async def generic_exception_handler(request: Request, exc: Exception):
+    return JSONResponse(
+        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        content={
+            "success": False,
+            "message": "An unexpected error occurred.",
+            "details": str(exc),
+        },
     )

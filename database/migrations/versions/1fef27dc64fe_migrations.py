@@ -1,8 +1,8 @@
-"""initial
+"""migrations
 
-Revision ID: 3489e8fd186b
+Revision ID: 1fef27dc64fe
 Revises: 
-Create Date: 2025-05-09 07:40:32.843978
+Create Date: 2025-05-15 11:22:55.677332
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '3489e8fd186b'
+revision: str = '1fef27dc64fe'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -27,6 +27,7 @@ def upgrade() -> None:
     sa.Column('description', sa.String(length=255), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.Column('deleted_at', sa.DateTime(), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
     )
@@ -38,8 +39,11 @@ def upgrade() -> None:
     sa.Column('phone_no', sa.String(length=15), nullable=True),
     sa.Column('dial_code', sa.String(length=5), nullable=True),
     sa.Column('password', sa.String(), nullable=False),
+    sa.Column('email_verified_at', sa.DateTime(), nullable=True),
+    sa.Column('email_verify_token', sa.String(), nullable=True),
+    sa.Column('email_verify_expired_at', sa.DateTime(), nullable=True),
     sa.Column('status', sa.Enum('active', 'inactive', 'blocked', name='userstatusenum'), nullable=False),
-    sa.Column('user_type', sa.Enum('guest', 'authorized', name='usertypeenum'), nullable=False),
+    sa.Column('user_type', sa.Enum('is_admin', 'is_user', name='usertypeenum'), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.Column('deleted_at', sa.DateTime(), nullable=True),
@@ -51,20 +55,23 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('category_id', sa.Integer(), nullable=True),
-    sa.Column('question', sa.Text(), nullable=False),
+    sa.Column('question', sa.String(length=200), nullable=False),
+    sa.Column('slug', sa.String(length=200), nullable=False),
     sa.Column('question_type', sa.Enum('multiple_choice', 'boolean', name='questiontypeenum'), nullable=False),
     sa.Column('status', sa.Enum('active', 'rejected', 'draft', name='questionstatusenum'), nullable=False),
-    sa.Column('review_comment', sa.String(length=200), nullable=True),
     sa.Column('difficulty', sa.Enum('easy', 'medium', 'hard', name='questiondifficultyenum'), nullable=False),
     sa.Column('is_published', sa.Boolean(), nullable=False),
+    sa.Column('review_comment', sa.String(length=200), nullable=True),
     sa.Column('explanation', sa.Text(), nullable=True),
+    sa.Column('references', sa.Text(), nullable=True),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
     sa.Column('deleted_at', sa.DateTime(), nullable=True),
     sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ),
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id'),
-    sa.UniqueConstraint('question')
+    sa.UniqueConstraint('question'),
+    sa.UniqueConstraint('slug')
     )
     op.create_index(op.f('ix_questions_id'), 'questions', ['id'], unique=False)
     op.create_table('quizzes',
@@ -79,10 +86,22 @@ def upgrade() -> None:
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_quizzes_id'), 'quizzes', ['id'], unique=False)
+    op.create_table('user_tokens',
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('access_token', sa.String(length=450), nullable=False),
+    sa.Column('refresh_token', sa.String(length=450), nullable=False),
+    sa.Column('ip', sa.String(length=40), nullable=False),
+    sa.Column('user_agent', sa.Text(), nullable=False),
+    sa.Column('expired_at', sa.DateTime(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), nullable=False),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('access_token')
+    )
     op.create_table('choices',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('question_id', sa.Integer(), nullable=False),
-    sa.Column('option_text', sa.String(length=255), nullable=False),
+    sa.Column('option_text', sa.String(length=150), nullable=False),
     sa.Column('is_correct', sa.Boolean(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.Column('updated_at', sa.DateTime(), nullable=False),
@@ -142,6 +161,7 @@ def downgrade() -> None:
     op.drop_table('quiz_attempts')
     op.drop_index(op.f('ix_choices_id'), table_name='choices')
     op.drop_table('choices')
+    op.drop_table('user_tokens')
     op.drop_index(op.f('ix_quizzes_id'), table_name='quizzes')
     op.drop_table('quizzes')
     op.drop_index(op.f('ix_questions_id'), table_name='questions')

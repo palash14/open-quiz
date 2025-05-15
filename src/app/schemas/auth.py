@@ -108,3 +108,6 @@ class ResetPasswordValidator(BaseModel):
                 detail="Password must be at least 8 characters long",
             )
         return v
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
