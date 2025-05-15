@@ -10,13 +10,14 @@ smtp_server = settings.SMTP_HOST
 smtp_port = settings.SMTP_PORT
 smtp_username = settings.SMTP_USERNAME
 smtp_password = settings.SMTP_PASSWORD
+smtp_encryption = (settings.SMTP_ENCRYPTION or "").lower()  # '', 'starttls', 'ssl'
 sender_email = settings.SENDER_EMAIL
 
 
 def send_email(email: str, subject: str, plain_text_body: str, html_body: str):
     """Send an email with given subject and body content."""
     try:
-        msg = MIMEMultipart()
+        msg = MIMEMultipart("alternative")
         msg["From"] = sender_email
         msg["To"] = email
         msg["Subject"] = subject
@@ -31,21 +32,38 @@ def send_email(email: str, subject: str, plain_text_body: str, html_body: str):
         msg.attach(part2)
 
         # Send the email
-        with smtplib.SMTP(smtp_server, smtp_port) as server:
-            server.starttls()
-            server.login(smtp_username, smtp_password)
-            server.sendmail(sender_email, email, msg.as_string())
+        if smtp_encryption == "ssl":
+            with smtplib.SMTP_SSL(smtp_server, smtp_port) as server:
+                _login_if_needed(server)
+                server.sendmail(sender_email, email, msg.as_string())
+
+        else:
+            with smtplib.SMTP(smtp_server, smtp_port) as server:
+                server.ehlo()
+                if smtp_encryption == "starttls":
+                    if server.has_extn("STARTTLS"):
+                        server.starttls()
+                        server.ehlo()
+                    else:
+                        raise RuntimeError(
+                            "STARTTLS requested but not supported by server"
+                        )
+                _login_if_needed(server)
+                server.sendmail(sender_email, email, msg.as_string())
 
     except Exception as e:
         mail_logger.error(f"Error sending email to {email}: {str(e)}")
         raise e
 
+def _login_if_needed(server: smtplib.SMTP):
+    """Helper to conditionally perform login."""
+    if smtp_username and smtp_password and smtp_username.lower() != "null":
+        server.login(smtp_username, smtp_password)
+
 
 def send_verification_email(email: str, otp: str):
     subject = "Please verify your email address"
-    plain_text_body = (
-        f"This is your Verification Email OTP: {otp}"
-    )
+    plain_text_body = f"This is your Verification Email OTP: {otp}"
 
     # HTML version
     html_body = f"""

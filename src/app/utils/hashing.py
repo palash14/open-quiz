@@ -1,8 +1,8 @@
 # File: src/app/utils/hashing.py
 from passlib.context import CryptContext
 
-# Initialize CryptContext with bcrypt hashing scheme
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Initialize CryptContext with sha256_crypt hashing scheme
+pwd_context = CryptContext(schemes=["sha256_crypt"])
 
 
 def hash_password(password: str) -> str:
@@ -15,7 +15,7 @@ def hash_password(password: str) -> str:
     try:
         if not password:
             raise ValueError("Password cannot be empty")
-        # Hash the password securely using bcrypt
+        # Hash the password securely using sha256_crypt
         return pwd_context.hash(password)
     except Exception as e:
         # Handle unexpected errors securely
