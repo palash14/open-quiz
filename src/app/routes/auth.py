@@ -20,7 +20,7 @@ from src.app.core.config import settings
 from src.app.schemas.auth import ForgotPasswordValidator, RefreshTokenRequest
 from src.app.services.user_service import UserService
 from src.app.core.logger import create_logger
-from src.celery.queue_task import send_verification_email_task, send_forgot_email_task
+from src.app.tasks.queue_task import send_verification_email_task, send_forgot_email_task
 
 auth_logger = create_logger("auth_logger", "route_auth.log")
 

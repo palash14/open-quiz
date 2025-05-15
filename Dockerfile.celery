@@ -30,4 +30,4 @@ RUN pip install --upgrade pip && \
 COPY . .
 
 # Run the Celery worker with specified queues
-CMD ["celery", "-A", "src.celery.queue_task.celery", "worker", "--loglevel=info", "-Q", "email_queue"]
+CMD ["celery", "-A", "src.app.tasks.queue_task.celery", "worker", "--loglevel=info", "-Q", "email_queue"]

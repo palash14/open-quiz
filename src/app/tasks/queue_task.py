@@ -1,6 +1,6 @@
-# File: src/celery/queue_task.py
-from src.celery.celery_config import celery
-from src.celery.utils.email_worker import (
+# File: src/app/tasks/queue_task.py
+from src.app.tasks.celery_config import celery
+from src.app.tasks.utils.email_worker import (
     send_verification_email,
     send_forgot_email,
     send_custom_email,
