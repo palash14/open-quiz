@@ -1,17 +1,26 @@
-from fastapi import APIRouter, HTTPException, Request, status, Depends
-from typing import Annotated, Optional
+# File: src/app/routes/auth_google.py
+from fastapi import APIRouter, Request, Depends
+from typing import Annotated
 from starlette.responses import RedirectResponse
 from requests_oauthlib import OAuth2Session
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
-from crud import user
-from config import settings
-from database import get_db, get_field_value
-from utils.jwt import create_jwt_token, get_client_ip, get_user_agent
+from uuid import uuid4
+from src.app.core.config import settings
+from src.app.core.database import get_db
+from src.app.core.config import settings
+from src.app.utils.jwt import (
+    create_jwt_token,
+    get_client_ip,
+    get_user_agent,
+    create_user_token,
+)
 from datetime import datetime, timezone, timedelta
-from routers import handle_exception
-from custom_logger import create_logger
-from crud.user_token import create_user_token
+from src.app.services.user_service import UserService
+from src.app.core.logger import create_logger
+from src.app.schemas.auth import (
+    UserCreate,
+    Token,
+)
 
 auth_google_logger = create_logger("auth_google_logger", "routers_auth_google.log")
 
@@ -29,23 +38,7 @@ router = APIRouter(
     tags=["Authentication"],
     responses={404: {"description": "Not found"}},
 )
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-
-
-class UserCreate(BaseModel):
-    email: str
-    name: str
-    phone_no: Optional[str] = None
-    dial_code: Optional[str] = None
-    password: str
-    email_verified_at: Optional[datetime] = None
-    email_verify_token: Optional[str] = None
-    email_verify_expired_at: Optional[datetime] = None
-    status: str
+ 
 
 
 @router.get("/google/login")
@@ -62,7 +55,7 @@ def login_with_google():
 
 
 @router.get("/google/callback")
-def auth_google_callback(request: Request, db: Annotated[Session, Depends(get_db)]):
+def auth_google_callback(request: Request, db: Annotated[Session, Depends(get_db)]) -> Token:
     """Handles Google OAuth callback and extracts user information."""
     try:
         google = OAuth2Session(
@@ -77,27 +70,15 @@ def auth_google_callback(request: Request, db: Annotated[Session, Depends(get_db
         # Use token to get user information
         response = google.get("https://www.googleapis.com/oauth2/v1/userinfo")
         if response.status_code != 200:
-            raise HTTPException(
-                status_code=400, detail="Failed to fetch user info from Google"
-            )
+            raise ValueError("Failed to fetch user info from Google")
 
         user_info = response.json()
         email = user_info.get("email")
         full_name = user_info.get("name")
 
-        user_data = {
-            "email": email,
-            "name": full_name,
-            "phone_no": None,
-            "dial_code": None,
-            "password": datetime.now(timezone.utc).strftime("%Y%m%d%H%I"),
-            "email_verified_at": datetime.today(),
-            "email_verify_token": None,
-            "email_verify_expired_at": None,
-            "status": "active",
-        }
+        user_service = UserService(db)
 
-        existing_user_by_email = get_field_value(db, "users", "email", email)
+        existing_user_by_email = user_service.find_one(email=email)
 
         # Register or login the user in the mock database
         if existing_user_by_email:
@@ -105,11 +86,18 @@ def auth_google_callback(request: Request, db: Annotated[Session, Depends(get_db
             access_token, refresh_token = create_jwt_token(subject=email)
             user_id = existing_user_by_email.id
         else:
-            # Convert the dictionary to a Pydantic model instance
-            user_create = UserCreate(**user_data)
+            user_create = UserCreate(
+                email=email,
+                name=full_name,
+                password=str(uuid4()),
+                email_verified_at=datetime.now(),
+                email_verify_token=None,
+                email_verify_expired_at=None,
+                status="active",
+            )             
 
             # Create a new user in the mock database
-            user_new_data = user.create(db, None, user_create)
+            user_new_data = user_service.create(user_create)
             db.commit()
             user_id = user_new_data.id
             access_token, refresh_token = create_jwt_token(subject=email)
@@ -125,12 +113,9 @@ def auth_google_callback(request: Request, db: Annotated[Session, Depends(get_db
             + timedelta(minutes=int(settings.ACCESS_TOKEN_EXPIRE_MINUTES)),
         )
 
-        url = settings.FRONTEND_URL + "/googleSignIn?token=" + access_token
-        return RedirectResponse(url)
+        return Token(access_token=access_token, refresh_token=refresh_token)
 
     except Exception as e:
         db.rollback()
-        # Log the exception (in real-world application, use proper logging)
-        print(f"Unhandled exception: {e}")
         auth_google_logger.error(f"Unhandled exception: {e}")
-        handle_exception(e)
+        raise e

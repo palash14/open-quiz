@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, Request, status, Depends
+# File: src/app/routes/auth_github.py
+from fastapi import APIRouter, Request, status, Depends, Query
 from typing import Annotated
 from sqlalchemy.orm import Session
 from uuid import uuid4
@@ -10,7 +11,7 @@ from src.app.utils.jwt import (
     get_user_agent,
     create_user_token,
 )
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta
 from src.app.core.logger import create_logger
 from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
@@ -66,7 +67,9 @@ async def login_with_github(request: Request):
     status_code=status.HTTP_201_CREATED,
 )
 async def auth_github_callback(
-    request: Request, db: Annotated[Session, Depends(get_db)]
+    request: Request,
+    db: Annotated[Session, Depends(get_db)],
+    code: str = Query(max_length=200),
 ) -> Token:
     """Handle the callback from GitHub after successful login."""
     try:

@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.sessions import SessionMiddleware
-from src.app.routes import quiz, category, auth, auth_github, question
+from src.app.routes import quiz, category, auth, auth_github, auth_google, question
 from src.app.core.swagger import custom_openapi
 from src.app.utils.exceptions import (
     ValidationException,
@@ -37,5 +37,6 @@ app.openapi = lambda: custom_openapi(app)
 app.include_router(quiz.router)
 app.include_router(auth.router)
 app.include_router(auth_github.router)
+app.include_router(auth_google.router)
 app.include_router(category.router)
 app.include_router(question.router)
