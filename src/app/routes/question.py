@@ -1,4 +1,4 @@
-# src/app/routes/quiz.py
+# File: src/app/routes/question.py
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.orm import Session
@@ -12,6 +12,8 @@ from src.app.schemas.question import (
 from src.app.services.question_service import QuestionService
 from src.app.core.logger import create_logger
 from enum import Enum
+from src.app.models.user import User
+from src.app.utils.jwt import get_current_user
 
 router = APIRouter(
     prefix="/questions",
@@ -76,11 +78,12 @@ def get_questions(
 )
 def create_question(
     request: QuestionCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
     try:
         service = QuestionService(db)
-        payload = request.copy(update={"user_id": 1})
+        payload = request.model_copy(update={"user_id": current_user.id})
         question = service.create(payload)
 
         db.commit()
@@ -101,11 +104,12 @@ def create_question(
 def update_question(
     question_id: int,
     request: QuestionCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
     try:
         service = QuestionService(db)
-        payload = request.copy(update={"user_id": 1})
+        payload = request.model_copy(update={"user_id": current_user.id})
         question = service.update(question_id, payload)
 
         db.commit()

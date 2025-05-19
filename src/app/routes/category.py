@@ -1,3 +1,4 @@
+# File: src/app/routes/category.py
 from typing import Annotated, List
 from fastapi import APIRouter, Depends, status, HTTPException, status
 from sqlalchemy.orm import Session
@@ -5,6 +6,9 @@ from src.app.core.database import get_db
 from src.app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
 from src.app.services.category_service import CategoryService
 from src.app.core.logger import create_logger
+from src.app.models.user import User
+from src.app.utils.jwt import get_current_user
+
 router = APIRouter(
     prefix="/categories",
     tags=["Category"],
@@ -23,6 +27,7 @@ logger = create_logger("category", "routers_category.log")
 )
 def create_category(
     request: CategoryCreate,
+    current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
     try:
@@ -94,6 +99,7 @@ def get_category_by_id(
 def update_category(
     category_id: int,
     request: CategoryUpdate,
+    current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
     try:
@@ -116,6 +122,7 @@ def update_category(
 )
 def delete_category(
     category_id: int,
+    current_user: Annotated[User, Depends(get_current_user)],
     db: Annotated[Session, Depends(get_db)],
 ):
     try:
