@@ -1,6 +1,6 @@
 # File: src/app/schemas/auth.py
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, FieldValidationInfo
 from src.app.schemas.user import UserResponse
 from src.app.schemas.validators import CommonValidators
 
@@ -14,12 +14,12 @@ class EmailVerifyValidator(BaseModel):
     @field_validator("token")
     @classmethod
     def check_token(cls, v):
-        return CommonValidators.validate_non_empty_token(v)
+        return CommonValidators().validate_non_empty_token(v)
 
     @field_validator("email")
     @classmethod
     def check_email(cls, v):
-        return CommonValidators.validate_email_format(v)
+        return CommonValidators().validate_email_format(v)
 
 
 class ForgotPasswordValidator(BaseModel):
@@ -28,7 +28,7 @@ class ForgotPasswordValidator(BaseModel):
     @field_validator("email")
     @classmethod
     def check_email(cls, v):
-        return CommonValidators.validate_email_format(v)
+        return CommonValidators().validate_email_format(v)
 
 
 class ResetPasswordValidator(BaseModel):
@@ -41,21 +41,30 @@ class ResetPasswordValidator(BaseModel):
         ..., min_length=4, max_length=50,
         description="Password must be between 4 and 50 characters."
     )
+    confirm_password: str = Field(...)
 
     @field_validator("token")
     @classmethod
     def check_token(cls, v):
-        return CommonValidators.validate_non_empty_token(v)
+        return CommonValidators().validate_non_empty_token(v)
 
     @field_validator("email")
     @classmethod
     def check_email(cls, v):
-        return CommonValidators.validate_email_format(v)
+        return CommonValidators().validate_email_format(v)
 
     @field_validator("password")
     @classmethod
     def check_password(cls, v):
-        return CommonValidators.validate_password_strength(v)
+        return CommonValidators().validate_password_strength(v)
+    
+    @field_validator("confirm_password")
+    @classmethod
+    def passwords_match(cls, confirm_password: str, info: FieldValidationInfo):
+        password = info.data.get("password")
+        if password is not None and confirm_password != password:
+            raise ValueError("Passwords do not match.")
+        return confirm_password
 
 
 class RefreshTokenRequest(BaseModel):

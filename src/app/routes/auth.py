@@ -20,6 +20,7 @@ from src.app.core.config import settings
 from src.app.schemas.auth import (
     EmailVerifyValidator,
     ForgotPasswordValidator, 
+    ResetPasswordValidator,
     RefreshTokenRequest,
     AuthRouterResponse,
     RegistrationResponse, 
@@ -303,15 +304,13 @@ def forgot_password(
     "/reset-password",
     summary="Reset user password",
     description="This endpoint resets the user's password using the provided token.",
-    response_class=JSONResponse,
+    response_model=AuthRouterResponse,
+    status_code=status.HTTP_200_OK,
 )
 def reset_password(
-    db: Annotated[Session, Depends(get_db)],
-    email: str = Form(...),
-    password: str = Form(...),
-    confirm_password: str = Form(...),
-    token: str = Form(...),
-):
+    request: ResetPasswordValidator,
+    db: Annotated[Session, Depends(get_db)], 
+)-> Union[AuthRouterResponse, JSONResponse]:
     """
     Handle password reset requests by validating the token and updating the password.
 
@@ -322,27 +321,12 @@ def reset_password(
     :param db: The SQLAlchemy session.
     :return: HTML response indicating success or failure.
     """
-    try:
-        # Validate the passwords match
-        if password != confirm_password:
-            return JSONResponse(
-                content="Passwords do not match. Please try again.", status_code=400
-            )
-
-        # Ensure the new password meets strength requirements
-        if (
-            len(password) < 8
-            or not any(char.isupper() for char in password)
-            or not any(char.isdigit() for char in password)
-            or not any(char in "!@#$%^&*()_+" for char in password)
-        ):
-            return JSONResponse(
-                content="Password does not meet strength requirements. It must be at least 8 characters long, contain at least one uppercase letter, one digit, and one special character.",
-                status_code=400,
-            )
+    try:        
+        
+        user_service = UserService(db)
 
         # Check if the email and token are valid
-        result = user.find_one(db, email=email, email_verify_token=token)
+        result = user_service.find_one(email=request.email, email_verify_token=request.token)
 
         if not result:
             return JSONResponse(
@@ -368,7 +352,7 @@ def reset_password(
 
         # Update the user's password
         hashed_password = hash_password(
-            password
+            request.password
         )  # Ensure you have a hash_password function
         # Update the user's email_verified_at field
         result.email_verify_token = None
@@ -377,13 +361,13 @@ def reset_password(
         db.commit()  # Commit the changes to the database
         db.refresh(result)  # Refresh the instance with updated data
 
-        return JSONResponse(
-            content="Password reset successfully! You may now log in with your new password."
+        return AuthRouterResponse(
+            success=True,
+            detail="Password reset successfully! You may now log in with your new password."
         ) 
 
     except Exception as e:
         # Handle any unexpected errors
         db.rollback()  # Rollback the changes in case of an unexpected error
-        print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while reset password: {e}")
         raise e
