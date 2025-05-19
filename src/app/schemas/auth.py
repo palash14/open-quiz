@@ -1,6 +1,8 @@
 # File: src/app/schemas/auth.py
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, FieldValidationInfo
+from typing import Optional
+from datetime import datetime
 from src.app.schemas.user import UserResponse
 from src.app.schemas.validators import CommonValidators
 
@@ -72,8 +74,8 @@ class RefreshTokenRequest(BaseModel):
 
 
 class AuthRouterResponse(BaseModel):
-    success: bool
-    detail: str
+    success: bool = True
+    detail: str = ""
 
 
 class RegistrationResponse(AuthRouterResponse):
@@ -89,3 +91,14 @@ class Token(AuthRouterResponse):
     access_token: str
     refresh_token: str
     token_type: str = "bearer"
+
+class UserCreate(BaseModel):
+    email: str
+    name: str
+    phone_no: Optional[str] = None
+    dial_code: Optional[str] = None
+    password: str
+    email_verified_at: Optional[datetime] = None
+    email_verify_token: Optional[str] = None
+    email_verify_expired_at: Optional[datetime] = None
+    status: str

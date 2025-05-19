@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     SQLALCHEMY_TRACK_MODIFICATIONS: bool = False
 
     # Security Configuration
+    SESSION_SECRET_KEY: str = os.getenv("SESSION_SECRET_KEY", "session_secret_key")
     SECRET_KEY: str = os.getenv("SECRET_KEY", "secret_key")
     ACCESS_TOKEN_EXPIRE_MINUTES: int = os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", (60 * 24 * 7))
     JWT_ALGORITHM: str = os.getenv("JWT_ALGORITHM", "HS256")

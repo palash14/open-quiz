@@ -1,9 +1,8 @@
 from typing import Annotated, Union
-from fastapi import APIRouter, Form, Depends, status, Request, HTTPException
+from fastapi import APIRouter, Depends, status, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, ValidationError
 from datetime import datetime, timezone, timedelta
 from src.app.core.database import get_db
 from src.app.utils.exceptions import ValidationException
@@ -120,15 +119,10 @@ def verify_email(
         result = user_service.find_one(email=request.email, email_verify_token=request.token)
 
         if not result:
-            return JSONResponse(
-                content="Verification Failed,Invalid email or token. Please try again",
-                status_code=400,
-            )
+            raise ValidationException("Invalid email or token. Please try again.")
 
         if result.email_verified_at is not None:
-            return JSONResponse(
-                content="Email address already verified.", status_code=400
-            )
+            raise ValidationException("Email address already verified.")
 
         # Check if the token has expired
         if result.email_verify_expired_at:
@@ -137,15 +131,12 @@ def verify_email(
             ).strftime("%Y%m%d%H%I")
             today = datetime.now(timezone.utc).strftime("%Y%m%d%H%I")
             if email_expiry < today:
-                return JSONResponse(
-                    content="Verification Failed,Token has expired. Please request a new verification email.",
-                    status_code=400,
+                raise ValidationException(
+                    "Token has expired. Please request a new verification email."
                 )
         else:
-            return JSONResponse(
-                content="Verification Failed,Token has expired. Please request a new verification email.",
-                status_code=400,
-            )
+            raise ValidationException("Token has expired. Please request a new verification email.")
+            
 
         # Update the user's email_verified_at field
         result.email_verified_at = datetime.now().replace(tzinfo=timezone.utc)
@@ -155,16 +146,10 @@ def verify_email(
         db.refresh(result)  # Refresh the instance with updated data
         return JSONResponse(
             content="Email address verified successfully.", status_code=200
-        )
-
-    except HTTPException as http_exc:
-        # Re-raise known HTTP exceptions
-        raise http_exc
+        ) 
 
     except Exception as e:
         db.rollback()  # Rollback any changes if an error occurs
-        # Log the exception (in a real-world application, use proper logging)
-        print(f"Unhandled exception: {e}")
         auth_logger.error(f"An error occurred while verify email: {e}")
         raise e
 
@@ -223,7 +208,6 @@ async def login(
         return Token(access_token=access_token, refresh_token=refresh_token)
 
     except Exception as e:
-        print(f"{e}")
         auth_logger.error(f"An error occurred while login: {e}")
         raise e
 
@@ -239,7 +223,7 @@ async def refresh_access_token(request: RefreshTokenRequest):
     try:
         payload = decode_jwt_token(request.refresh_token)
         if payload.get("type") != "refresh":
-            raise HTTPException(status_code=400, detail="Invalid token type")
+            raise ValidationException("Invalid token type")
 
         new_access_token, refresh_token = create_jwt_token(subject=payload["sub"])
         return Token(access_token=new_access_token, refresh_token=refresh_token)
@@ -270,10 +254,7 @@ def forgot_password(
         user_service = UserService(db)
         user_data = user_service.find_one(email=request.email)
         if not user_data:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found.",
-            )
+            raise ValidationException("User not found")
 
         # Generate password reset token
         reset_token = user_service.generate_otp()
@@ -329,9 +310,7 @@ def reset_password(
         result = user_service.find_one(email=request.email, email_verify_token=request.token)
 
         if not result:
-            return JSONResponse(
-                content="Invalid email or token. Please try again.", status_code=400
-            )
+            raise ValidationException("Invalid email or token. Please try again.")
 
         # Check if the token has expired
         if result.email_verify_expired_at:
@@ -340,15 +319,12 @@ def reset_password(
             ).strftime("%Y%m%d%H%I")
             today = datetime.now(timezone.utc).strftime("%Y%m%d%H%I")
             if email_expiry < today:
-                return JSONResponse(
-                    content="Token has expired. Please request a new password reset.",
-                    status_code=400,
+                raise ValidationException(
+                    "Token has expired. Please request a new password reset."
                 )
         else:
-            return JSONResponse(
-                content="Verification Failed! Token has expired. Please request a new verification email.",
-                status_code=400,
-            )
+            raise ValidationException("Token has expired. Please request a new password reset.")
+            
 
         # Update the user's password
         hashed_password = hash_password(

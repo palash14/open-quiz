@@ -51,7 +51,7 @@ def get_category(
         service = CategoryService(db)
         categories = service.find_all(sort_by="id", sort_order="desc")
 
-        return [CategoryResponse.from_orm(category) for category in categories]
+        return [CategoryResponse.model_validate(category) for category in categories]
     except Exception as e:
         logger.error(e)
         raise e
