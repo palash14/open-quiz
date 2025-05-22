@@ -1,9 +1,9 @@
 from datetime import datetime, timezone
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from src.app.models.category import Category
 from src.app.schemas.category import CategoryCreate, CategoryUpdate
 from src.app.services.base_service import BaseService
+from src.app.utils.exceptions import ValidationException, RecordNotFoundException
 
 
 class CategoryService(BaseService):
@@ -13,10 +13,7 @@ class CategoryService(BaseService):
     def create(self, payload: CategoryCreate) -> Category:
         existing = self.find_one(name=payload.name)
         if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Category name already exists.",
-            )
+            raise ValidationException("Category name already exists.")
 
         category = Category(
             name=payload.name,
@@ -29,18 +26,12 @@ class CategoryService(BaseService):
     def update(self, category_id: int, payload: CategoryUpdate) -> Category:
         category = self.find_one(id=category_id)
         if not category:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Category not found.",
-            )
+            raise RecordNotFoundException("Category not found.")
 
         if payload.name and payload.name != category.name:
             existing = self.find_one(Category.id != category_id, name=payload.name)
             if existing:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Category name already exists.",
-                )
+                raise ValidationException("Category name already exists.")
 
         for key, value in payload.dict(exclude_unset=True).items():
             setattr(category, key, value)
@@ -56,10 +47,7 @@ class CategoryService(BaseService):
 
         # If category not found or already deleted, raise an exception
         if not category:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Category not found.",
-            )
+            raise RecordNotFoundException("Category not found.")
 
         # Soft delete the category by setting the deleted_at timestamp
         category.deleted_at = datetime.now(timezone.utc)

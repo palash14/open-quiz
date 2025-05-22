@@ -11,7 +11,6 @@ from src.app.models.user_token import UserToken
 from src.app.core.config import settings
 from src.app.models.user import User, UserStatusEnum
 from src.app.core.database import get_db
-from src.app.services.user_service import UserService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
@@ -57,17 +56,6 @@ def create_jwt_token(subject: str, expires_delta: timedelta = None) -> Tuple[str
     )
 
     return access_token, refresh_token
-
-
-def get_user(db: Session, email: str) -> User:
-    """
-    Find a user by their email.
-
-    :param db: The SQLAlchemy session.
-    :param email: The email of the user to find.
-    :return: The user instance if found, else None.
-    """
-    return find_one(db, email=email)
 
 
 def get_current_user(
@@ -186,10 +174,6 @@ def validate_and_revoke_token(token: str, db: Session):
     Validate the token and revoke or expire it.
     """
     try:
-        # Decode the token
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
-        email = payload.get("sub")
-
         # Fetch the token record from the database
         token_record = db.query(UserToken).filter_by(access_token=token).first()
         if not token_record:

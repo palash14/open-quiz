@@ -1,7 +1,6 @@
 from typing import List, Optional
 from slugify import slugify
 from datetime import datetime, timezone
-from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from src.app.models.question import Question
 from src.app.models.choice import Choice
@@ -10,6 +9,7 @@ from src.app.schemas.choice import ChoiceSync
 from src.app.services.base_service import BaseService
 from src.app.models.user import User
 from src.app.models.category import Category
+from src.app.utils.exceptions import ValidationException, RecordNotFoundException
 
 
 class QuestionService(BaseService):
@@ -27,10 +27,7 @@ class QuestionService(BaseService):
         # Check if question with same slug exists
         existing = self.find_one(slug=slug)
         if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Question already exists.",
-            )
+            raise ValidationException("Question already exists.")
 
         # Create the Question instance
         question = Question(
@@ -55,19 +52,13 @@ class QuestionService(BaseService):
         # Find the question by ID
         question = self.find_by_id(record_id=question_id)
         if not question:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Question not found.",
-            )
+            raise RecordNotFoundException("Question not found.")
 
         # Check if question with same slug exists
         slug = self.generate_slug(f"{payload.question}-{payload.category_id}")
         existing = self.find_one(Question.id != question_id, slug=slug)
         if existing:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Question already exists.",
-            )
+            raise ValidationException("Question already exists.")
 
         # Update the fields of the question
         for key, value in payload.dict(exclude_unset=True).items():
@@ -86,10 +77,7 @@ class QuestionService(BaseService):
         # Find the question by ID
         question = self.find_by_id(question_id)
         if not question:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Question not found.",
-            )
+            raise RecordNotFoundException("Question not found.")
 
         # Soft delete the question by setting the deleted_at timestamp
         question.deleted_at = datetime.now(timezone.utc)

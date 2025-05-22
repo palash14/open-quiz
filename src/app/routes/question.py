@@ -14,6 +14,7 @@ from src.app.core.logger import create_logger
 from enum import Enum
 from src.app.models.user import User
 from src.app.utils.jwt import get_current_user
+from src.app.utils.exceptions import RecordNotFoundException
 
 router = APIRouter(
     prefix="/questions",
@@ -134,6 +135,9 @@ def get_question(
     try:
         service = QuestionService(db)
         question = service.find_by_id(question_id)
+
+        if not question:
+            raise RecordNotFoundException("Question not found.")
 
         return QuestionResponse.model_validate(question)
     except Exception as e:

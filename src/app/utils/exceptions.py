@@ -1,4 +1,4 @@
-from fastapi import Request, status, HTTPException
+from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
@@ -9,9 +9,23 @@ class ValidationException(Exception):
         self.message = message
 
 
+class RecordNotFoundException(Exception):
+    def __init__(self, message: str = "Record not found."):
+        self.message = message
+
+
 async def validation_exception_handler(request: Request, exc: ValidationException):
     return JSONResponse(
         status_code=status.HTTP_400_BAD_REQUEST,
+        content={"success": False, "details": exc.message},
+    )
+
+
+async def record_not_found_exception_handler(
+    request: Request, exc: RecordNotFoundException
+):
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
         content={"success": False, "details": exc.message},
     )
 

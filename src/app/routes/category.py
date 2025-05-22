@@ -1,6 +1,6 @@
 # File: src/app/routes/category.py
 from typing import Annotated, List
-from fastapi import APIRouter, Depends, status, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 from src.app.core.database import get_db
 from src.app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
@@ -8,6 +8,7 @@ from src.app.services.category_service import CategoryService
 from src.app.core.logger import create_logger
 from src.app.models.user import User
 from src.app.utils.jwt import get_current_user
+from src.app.utils.exceptions import RecordNotFoundException
 
 router = APIRouter(
     prefix="/categories",
@@ -78,10 +79,7 @@ def get_category_by_id(
         category = service.find_by_id(category_id)
 
         if not category:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Category not found.",
-            )
+            raise RecordNotFoundException("Category not found.")
 
         return CategoryResponse.model_validate(category)
     except Exception as e:
