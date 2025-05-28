@@ -43,7 +43,7 @@ def upsert_users(db: Session) -> None:
                 "dial_code": "+91",
                 "password": hash_password("password123"),
                 "status": UserStatusEnum.active,
-                "user_type": UserTypeEnum.authorized,
+                "user_type": UserTypeEnum.is_admin,
             },
             {
                 "name": "Diptendu Barman",
@@ -52,7 +52,7 @@ def upsert_users(db: Session) -> None:
                 "dial_code": "+91",
                 "password": hash_password("password123"),
                 "status": UserStatusEnum.active,
-                "user_type": UserTypeEnum.authorized,
+                "user_type": UserTypeEnum.is_admin,
             },
             # Add more users as needed
         ]
@@ -85,3 +85,4 @@ def run(db: Session):
         logger.info("Seeding process completed successfully.")
     except Exception as e:
         logger.error(f"Seeding process failed: {e}")
+        raise e

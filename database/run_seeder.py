@@ -1,7 +1,7 @@
 # database/run_seeder.py
 from src.app.core.database import get_db
 from sqlalchemy.orm import Session
-from database.seeders import user_seeder
+from database.seeders import user_seeder, category_seeder
 
 
 def run_seeder():
@@ -14,11 +14,19 @@ def run_seeder():
 
     try:
         # Begin transaction
-        with db.begin():
-            user_seeder.run(db)
+        # Run user seeder in isolated transaction
+        try:
+            with db.begin():
+                user_seeder.run(db)
+        except Exception as e:
+            print(f"User seeder failed: {e}")
 
-        # Commit the transaction
-        db.commit()
+        # Run category seeder in isolated transaction
+        try:
+            with db.begin():
+                category_seeder.run(db)
+        except Exception as e:
+            print(f"Category seeder failed: {e}")
 
     except Exception as e:
         print(f"Error while seeding: {e}")
