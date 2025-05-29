@@ -49,6 +49,9 @@ migrate: ## Run database sync with migrations
 seeder: ## Run database seeder
 	$(DOCKER_COMPOSE) exec $(SERVICE_NAME) python database/run_seeder.py
 
+question_import: ## Run question import seeder
+	$(DOCKER_COMPOSE) exec $(SERVICE_NAME) python database/run_fetch_questions.py
+
 shell: ## Access container shell
 	$(DOCKER_COMPOSE) exec $(SERVICE_NAME) /bin/bash
 
