@@ -17,10 +17,10 @@ def fetch_and_store_questions():
     print("Fetching questions...")
     category_id = random.randint(9, 32)
     response = requests.get(
-        f"https://opentdb.com/api.php?amount=50&category={category_id}"
+        f"https://opentdb.com/api.php?amount=30&category={category_id}"
     )
     if response.status_code != 200:
-        print("Failed to fetch questions")
+        print(f"Failed to fetch questions, code= {response.status_code}")
         return
 
     data = response.json().get("results", [])
@@ -30,13 +30,13 @@ def fetch_and_store_questions():
     question_service = QuestionService(db)
     category_service = CategoryService(db)
     if not data:
-        print("No questions returned from API")
+        print(f"No questions returned from API from {category_id}")
         return
 
     category_name = data[0]["category"]
     category_data = category_service.find_one(name=category_name)
     if not category_data:
-        payload = CategoryCreate(name=category_name)
+        payload = CategoryCreate(name=category_name, description=None)
         category_data = category_service.create(payload)
 
     for q in data:
@@ -69,7 +69,11 @@ def fetch_and_store_questions():
                 difficulty=q["difficulty"],
                 references="opentdb.com",
                 choices=choices,
-                user_id=1
+                user_id=1,
+                status="active",
+                is_published=True,
+                explanation=None,
+                review_comment=None
             ) 
             question_obj = question_service.create(payload.model_copy(update={"user_id": 1}))
             db.add(question_obj)
@@ -81,4 +85,4 @@ def fetch_and_store_questions():
 
     db.commit()
     db.close()
-    print(f"Inserted {inserted_count} new questions.")
+    print(f"Inserted {inserted_count} new questions on {category_name}.")

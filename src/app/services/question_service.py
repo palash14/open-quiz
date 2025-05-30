@@ -27,7 +27,7 @@ class QuestionService(BaseService):
         # Check if question with same slug exists
         existing = self.find_one(slug=slug)
         if existing:
-            raise ValidationException("Question already exists.")
+            raise ValidationException(f"Question already exists `{payload.question}` in this category id {payload.category_id}.")
 
         # Create the Question instance
         question = Question(
