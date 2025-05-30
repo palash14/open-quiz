@@ -2,19 +2,25 @@
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, status, Query
 from sqlalchemy.orm import Session
+from sqlalchemy import select, func, case
 from src.app.core.database import get_db
 from src.app.schemas.question import (
     QuestionCreate,
     QuestionResponse,
     QuestionMinimalResponse,
     PaginateQuestionResponse,
+    CategoryStats,
+    QuestionStatsResponse
 )
 from src.app.services.question_service import QuestionService
 from src.app.core.logger import create_logger
 from enum import Enum
 from src.app.models.user import User
+from src.app.models.question import Question, QuestionStatusEnum
+from src.app.models.category import Category
 from src.app.utils.jwt import get_current_user
 from src.app.utils.exceptions import RecordNotFoundException
+import html
 
 router = APIRouter(
     prefix="/questions",
@@ -140,6 +146,52 @@ def get_question(
             raise RecordNotFoundException("Question not found.")
 
         return QuestionResponse.model_validate(question)
+    except Exception as e:
+        logger.error(e)
+        raise e
+
+@router.get(
+    "/global/stats",
+    summary="Get Question Stats",
+    description="Get Question Stats",
+    response_model=QuestionStatsResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_question_stats(
+    db: Annotated[Session, Depends(get_db)],
+):
+    try:
+        q = select(
+            Category.name.label("category_name"),
+            func.count(Question.id).label("total"),
+            func.count(case((Question.status == QuestionStatusEnum.draft, 1))).label("draft"),
+            func.count(case((Question.status == QuestionStatusEnum.active, 1))).label("active"),
+            func.count(case((Question.status == QuestionStatusEnum.rejected, 1))).label("rejected"),
+        ).join(Question, Question.category_id == Category.id).group_by(Category.id)
+
+        result = db.execute(q)
+        rows = result.all()
+
+        category_stats = [
+            CategoryStats(
+                category_name=html.unescape(row.category_name),
+                total_num_of_questions=row.total,
+                total_num_of_pending_questions=row.draft,
+                total_num_of_verified_questions=row.active,
+                total_num_of_rejected_questions=row.rejected,
+            )
+            for row in rows
+        ]
+
+        response = QuestionStatsResponse(
+            total_num_of_questions=sum(cs.total_num_of_questions for cs in category_stats),
+            total_num_of_pending_questions=sum(cs.total_num_of_pending_questions for cs in category_stats),
+            total_num_of_verified_questions=sum(cs.total_num_of_verified_questions for cs in category_stats),
+            total_num_of_rejected_questions=sum(cs.total_num_of_rejected_questions for cs in category_stats),
+            categories=category_stats,
+        )
+
+        return response
     except Exception as e:
         logger.error(e)
         raise e

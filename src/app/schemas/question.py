@@ -84,3 +84,21 @@ class PaginateQuestionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class CategoryStats(BaseModel):
+    category_name: str
+    total_num_of_questions: int
+    total_num_of_pending_questions: int
+    total_num_of_verified_questions: int
+    total_num_of_rejected_questions: int
+
+class QuestionStatsResponse(BaseModel):
+    total_num_of_questions: int
+    total_num_of_pending_questions: int
+    total_num_of_verified_questions: int
+    total_num_of_rejected_questions: int
+    categories: List[CategoryStats]
+    class Config:
+        from_attributes = True
+
