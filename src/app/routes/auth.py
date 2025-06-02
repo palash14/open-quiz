@@ -214,8 +214,8 @@ async def login(
 
 @router.post(
     "/refresh-token",
-    summary="Login and get JWT token",
-    description="This endpoint logs in a user and returns a JWT token.",
+    summary="Get JWT Refresh token",
+    description="This endpoint logs in a user and returns a JWT Refresh token.",
     response_model=Token,
     status_code=status.HTTP_200_OK,
 )
