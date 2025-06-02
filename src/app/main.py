@@ -1,5 +1,6 @@
 # File: src/app/main.py
 from fastapi import FastAPI
+from scalar_fastapi import get_scalar_api_reference
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.sessions import SessionMiddleware
 from src.app.routes import quiz, category, auth, auth_github, auth_google, question
@@ -36,6 +37,14 @@ app.add_exception_handler(RecordNotFoundException, record_not_found_exception_ha
 
 # Set custom OpenAPI generator
 app.openapi = lambda: custom_openapi(app)
+
+@app.get("/scalar")
+def get_scalar_docs():
+    return get_scalar_api_reference(
+        openapi_url="/openapi.json",
+        title="Scalar API",
+   )
+
 
 app.include_router(quiz.router)
 app.include_router(auth.router)
