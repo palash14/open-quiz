@@ -1,5 +1,6 @@
 # File: src/app/main.py
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from scalar_fastapi import get_scalar_api_reference
 from fastapi.exceptions import RequestValidationError
 from starlette.middleware.sessions import SessionMiddleware
@@ -17,7 +18,14 @@ from src.app.utils.exceptions import (
 from src.app.core.config import settings
 from sqlalchemy.exc import SQLAlchemyError
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # async startup logic
+    yield
+    # async shutdown logic
+
 app = FastAPI(
+    lifespan=lifespan,
     title=settings.PROJECT_NAME,
     description=settings.PROJECT_DESC,
     version=settings.VERSION,
