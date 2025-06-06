@@ -1,7 +1,7 @@
 # File: src/app/routes/category.py
 from typing import Annotated, List
 from fastapi import APIRouter, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from src.app.core.database import get_db
 from src.app.schemas.category import CategoryCreate, CategoryUpdate, CategoryResponse
 from src.app.services.category_service import CategoryService
@@ -26,20 +26,20 @@ logger = create_logger("category", "routers_category.log")
     response_model=CategoryResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_category(
+async def create_category(
     request: CategoryCreate,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     try:
         service = CategoryService(db)
         category = service.create(request)
 
-        db.commit()
+        await db.commit()
         return CategoryResponse.model_validate(category)
     except Exception as e:
         logger.error(e)
-        db.rollback()
+        await db.rollback()
         raise e
 
 
@@ -50,12 +50,12 @@ def create_category(
     response_model=List[CategoryResponse],
     status_code=status.HTTP_200_OK,
 )
-def get_category(
-    db: Annotated[Session, Depends(get_db)],
+async def get_category(
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     try:
         service = CategoryService(db)
-        categories = service.find_all(sort_by="id", sort_order="desc")
+        categories = await service.find_all(sort_by="id", sort_order="desc")
 
         return [CategoryResponse.model_validate(category) for category in categories]
     except Exception as e:
@@ -70,13 +70,13 @@ def get_category(
     response_model=CategoryResponse,
     status_code=status.HTTP_200_OK,
 )
-def get_category_by_id(
+async def get_category_by_id(
     category_id: int,
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     try:
         service = CategoryService(db)
-        category = service.find_by_id(category_id)
+        category = await service.find_by_id(category_id)
 
         if not category:
             raise RecordNotFoundException("Category not found.")
@@ -94,21 +94,21 @@ def get_category_by_id(
     response_model=CategoryResponse,
     status_code=status.HTTP_200_OK,
 )
-def update_category(
+async def update_category(
     category_id: int,
     request: CategoryUpdate,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     try:
         service = CategoryService(db)
-        category = service.update(category_id, request)
+        category = await service.update(category_id, request)
 
-        db.commit()
+        await db.commit()
         return CategoryResponse.model_validate(category)
     except Exception as e:
         logger.error(e)
-        db.rollback()
+        await db.rollback()
         raise e
 
 
@@ -118,17 +118,17 @@ def update_category(
     description="Delete an existing Category.",
     status_code=status.HTTP_204_NO_CONTENT,
 )
-def delete_category(
+async def delete_category(
     category_id: int,
     current_user: Annotated[User, Depends(get_current_user)],
-    db: Annotated[Session, Depends(get_db)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     try:
         service = CategoryService(db)
-        service.delete(category_id)
-        db.commit()
+        await service.delete(category_id)
+        await db.commit()
 
     except Exception as e:
         logger.error(e)
-        db.rollback()
+        await db.rollback()
         raise e
