@@ -1,44 +1,48 @@
-from typing import Type, TypeVar, Optional, List, Generic, Any
-from sqlalchemy.orm import Session, Query, joinedload
+# File: src/app/core/query_builder.py
+from typing import Sequence, Type, TypeVar, Optional, List, Generic, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import Select, asc, desc
+from sqlalchemy.orm import joinedload
 from sqlalchemy.ext.declarative import DeclarativeMeta
-from sqlalchemy import asc, desc
+from sqlalchemy import select, func
 import math
 
 T = TypeVar("T", bound=DeclarativeMeta)
 
 
 class QueryBuilder(Generic[T]):
-    def __init__(self, db: Session, model: Type[T]):
+    def __init__(self, db: AsyncSession, model: Type[T]):
         self.db = db
         self.model = model
-        self.query: Query = db.query(model)
+        self.query: Select = select(model)
         self.__with_trashed = False
         self.__apply_soft_delete_filter()
 
-    def __apply_soft_delete_filter(self):
+    async def __apply_soft_delete_filter(self):
         if not self.__with_trashed and hasattr(self.model, "deleted_at"):
             self.query = self.query.filter(getattr(self.model, "deleted_at").is_(None))
 
-    def with_trashed(self) -> "QueryBuilder":
+    async def with_trashed(self) -> "QueryBuilder[T]":
         self.__with_trashed = True
-        self.query = self.db.query(self.model)
+        self.query = select(self.model)
         return self
 
-    def where(self, *expressions, **filters) -> "QueryBuilder":
+    async def where(self, *expressions, **filters) -> "QueryBuilder[T]":
         if expressions:
             self.query = self.query.filter(*expressions)
         if filters:
             self.query = self.query.filter_by(**filters)
         return self
 
-    def where_like(self, field: str, value: str) -> "QueryBuilder":
+    async def where_like(self, field: str, value: str) -> "QueryBuilder[T]":
         if hasattr(self.model, field):
             self.query = self.query.filter(
                 getattr(self.model, field).ilike(f"%{value}%")
             )
+
         return self
 
-    def where_relation(
+    async def where_relation(
         self, relation: Any, related_field: str, value: Any
     ) -> "QueryBuilder":
         self.query = self.query.join(relation).filter(
@@ -46,7 +50,7 @@ class QueryBuilder(Generic[T]):
         )
         return self
 
-    def where_relation_like(
+    async def where_relation_like(
         self, relation: Any, related_field: str, value: str
     ) -> "QueryBuilder":
         self.query = self.query.join(relation).filter(
@@ -54,12 +58,15 @@ class QueryBuilder(Generic[T]):
         )
         return self
 
-    def with_relationships(self, *relations: str) -> "QueryBuilder":
+    async def with_relationships(self, *relations: str) -> "QueryBuilder[T]":
         for rel in relations:
-            self.query = self.query.options(joinedload(rel))
+            relationship_attr = getattr(self.model, rel, None)
+            if relationship_attr is None:
+                raise ValueError(f"Model {self.model.__name__} has no relationship '{rel}'")
+            self.query = self.query.options(joinedload(relationship_attr))
         return self
 
-    def order_by(self, field: str, direction: str = "asc") -> "QueryBuilder":
+    async def order_by(self, field: str, direction: str = "asc") -> "QueryBuilder[T]":
         sort_column = getattr(self.model, field, None)
         if not sort_column:
             raise ValueError(f"Invalid sort field: {field}")
@@ -68,16 +75,24 @@ class QueryBuilder(Generic[T]):
         )
         return self
 
-    def paginate(
+    async def paginate(
         self, page: int = 1, page_size: int = 10, response_model: Optional[Any] = None
     ) -> dict:
-        total = self.query.count()
-        items = self.query.offset((page - 1) * page_size).limit(page_size).all()
+        # Get total count
+        count_query = self.query.with_only_columns(func.count()).order_by(None)
+        total_result = await self.db.execute(count_query)
+        total = total_result.scalar_one()
+
+        # Get paginated items
+        items_query = self.query.offset((page - 1) * page_size).limit(page_size)
+        items_result = await self.db.execute(items_query)
+        items: Sequence[T] = items_result.scalars().all()
+
         return {
             "items": (
                 [response_model.from_orm(item) for item in items]
                 if response_model
-                else items
+                else list(items)
             ),
             "total": total,
             "page": page,
@@ -85,8 +100,15 @@ class QueryBuilder(Generic[T]):
             "total_pages": math.ceil(total / page_size),
         }
 
-    def all(self) -> List[T]:
-        return self.query.all()
+    async def all(self) -> List[T]:
+        result = await self.db.execute(self.query)
+        return list(result.scalars().all())
 
-    def first(self) -> Optional[T]:
-        return self.query.first()
+    async def first(self) -> Optional[T]:
+        result = await self.db.execute(self.query)
+        return result.scalars().first()
+
+    async def count(self) -> int:
+        count_query = self.query.with_only_columns(func.count()).order_by(None)
+        result = await self.db.execute(count_query)
+        return result.scalar_one()
