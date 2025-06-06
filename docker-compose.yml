@@ -25,6 +25,8 @@ services:
     image: postgres:15-alpine
     container_name: quiz-api-db
     restart: always
+    ports:
+      - "5433:5432"
     env_file:
       - .env
     volumes:
